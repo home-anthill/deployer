@@ -29,20 +29,20 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ac-producer
+  name: producer
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ac-producer
+      app: producer
   template:
     metadata:
       labels:
-        app: ac-producer
+        app: producer
     spec:
       containers:
-      - name: ac-producer
+      - name: producer
         image: {{ .Values.producer.image }}
         {{- if .Values.debug.pods.alwaysPullContainers }}
         imagePullPolicy: Always
@@ -90,7 +90,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   selector:
-    app: ac-producer
+    app: producer
   ports:
     {{- if .Values.mosquitto.ssl.enable }}
     # expose mqtts port

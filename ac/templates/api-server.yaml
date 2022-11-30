@@ -42,20 +42,20 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ac-api-server
+  name: api-server
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ac-api-server
+      app: api-server
   template:
     metadata:
       labels:
-        app: ac-api-server
+        app: api-server
     spec:
       containers:
-      - name: ac-api-server
+      - name: api-server
         image: {{ .Values.apiServer.image }}
         env:
         - name: ENV
@@ -106,7 +106,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   selector:
-    app: ac-api-server
+    app: api-server
   ports:
     {{- if .Values.gui.ssl.enable }}
     - name: https

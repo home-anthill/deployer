@@ -46,20 +46,20 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ac-gui
+  name: gui
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ac-gui
+      app: gui
   template:
     metadata:
       labels:
-        app: ac-gui
+        app: gui
     spec:
       containers:
-      - name: ac-gui
+      - name: gui
         image: {{ .Values.gui.image }}
         env:
           {{- if .Values.mosquitto.ssl.enable }}
@@ -112,13 +112,13 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: ac-gui-svc
+  name: gui-svc
   namespace: {{ .Values.namespace }}
 spec:
   loadBalancerIP: {{ .Values.gui.publicIp }}
   type: LoadBalancer
   selector:
-    app: ac-gui
+    app: gui
   ports:
     # always enabled to redirect to https and for certbot
     - name: http

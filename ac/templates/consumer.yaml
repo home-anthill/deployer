@@ -15,20 +15,20 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ac-consumer
+  name: consumer
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ac-consumer
+      app: consumer
   template:
     metadata:
       labels:
-        app: ac-consumer
+        app: consumer
     spec:
       containers:
-      - name: ac-consumer
+      - name: consumer
         image: {{ .Values.consumer.image }}
         {{- if .Values.debug.pods.alwaysPullContainers }}
         imagePullPolicy: Always
@@ -58,7 +58,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   selector:
-    app: ac-consumer
+    app: consumer
   ports:
     - name: http
       protocol: TCP

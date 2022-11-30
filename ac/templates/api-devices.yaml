@@ -29,20 +29,20 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ac-api-devices
+  name: api-devices
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ac-api-devices
+      app: api-devices
   template:
     metadata:
       labels:
-        app: ac-api-devices
+        app: api-devices
     spec:
       containers:
-      - name: ac-api-devices
+      - name: api-devices
         image: {{ .Values.apiDevices.image }}
         env:
         - name: ENV
@@ -83,7 +83,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   selector:
-    app: ac-api-devices
+    app: api-devices
   ports:
   - name: grpc
     protocol: TCP

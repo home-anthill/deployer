@@ -12,20 +12,20 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ac-register
+  name: register
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ac-register
+      app: register
   template:
     metadata:
       labels:
-        app: ac-register
+        app: register
     spec:
       containers:
-      - name: ac-register
+      - name: register
         image: {{ .Values.register.image }}
         {{- if .Values.debug.pods.alwaysPullContainers }}
         imagePullPolicy: Always
@@ -58,7 +58,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   selector:
-    app: ac-register
+    app: register
   ports:
     - name: http
       protocol: TCP
