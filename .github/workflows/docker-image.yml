@@ -36,4 +36,5 @@ jobs:
 
       - name: Run helm template
         run: |
+          cd ac
           helm template -f values.yaml ac .
