@@ -36,5 +36,5 @@ jobs:
 
       - name: Run helm template
         run: |
-          cd ac
-          helm template -f values.yaml ac .
+          cd home-anthill
+          helm template -f values.yaml home-anthill .

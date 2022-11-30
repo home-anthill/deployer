@@ -1,7 +1,7 @@
-# Default values for ac.
+# Default values for home-anthill.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
-namespace: ac
+namespace: home-anthill
 domainName: "your-domain.com"
 
 domains:
@@ -9,7 +9,7 @@ domains:
   mqtt: "mqtt-domain.com"
 
 mosquitto:
-  image: "ks89/mosquitto"
+  image: "ks89/mosquitto:master"
   letsEncryptCerts: "/root/lets-encrypt-certs-mqtt"
   publicIp: "9.8.7.6"
   ssl:
@@ -20,12 +20,12 @@ mosquitto:
       server: "https://acme-v02.api.letsencrypt.org/directory"
 
 apiDevices:
-  image: "ks89/api-devices"
+  image: "ks89/api-devices:master"
   grpc: 
     libraryLogEnable: false
 
 apiServer:
-  image: "ks89/api-server"
+  image: "ks89/api-server:master"
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
   cookieSecret: "@DbTN*jA"
@@ -37,7 +37,7 @@ apiServer:
     enable: true
 
 gui:
-  image: "ks89/gui"
+  image: "ks89/gui:master"
   nginxConf: "/root/nginx-conf"
   letsEncryptCerts: "/root/lets-encrypt-certs"
   publicIp: "1.2.3.4"
@@ -49,7 +49,7 @@ gui:
       server: "https://acme-v02.api.letsencrypt.org/directory"
 
 certbot:
-  image: "ks89/certbot"
+  image: "ks89/certbot:master"
   guiRenewSchedule: "0 0 * * *"
   mqttRenewSchedule: "0 0 * * *"
 
@@ -61,13 +61,13 @@ rabbitmq:
   password: "guest"
 
 register:
-  image: "ks89/register"
+  image: "ks89/register:master"
 
 producer:
-  image: "ks89/producer"
+  image: "ks89/producer:master"
 
 consumer:
-  image: "ks89/consumer"
+  image: "ks89/consumer:master"
 
 # debug configuration, not for production environment
 debug:
