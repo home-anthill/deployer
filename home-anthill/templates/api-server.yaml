@@ -38,6 +38,7 @@ data:
     COOKIE_SECRET={{ .Values.apiServer.cookieSecret }}
     OAUTH2_CLIENTID={{ .Values.apiServer.oauth2ClientID }}
     OAUTH2_SECRETID={{ .Values.apiServer.oauth2SecretID }}
+    INTERNAL_CLUSTER_PATH=api-server-svc.{{ .Values.namespace }}.svc.cluster.local
 ---
 apiVersion: apps/v1
 kind: Deployment
