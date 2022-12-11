@@ -16,6 +16,7 @@ spec:
       containers:
       - name: mosquitto
         image: {{ .Values.mosquitto.image }}
+        imagePullPolicy: Always
         {{- if .Values.mosquitto.ssl.enable }}
         env:
         {{- if .Values.mosquitto.auth.enable }}

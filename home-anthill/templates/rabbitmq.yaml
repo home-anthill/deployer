@@ -16,6 +16,7 @@ spec:
       containers:
       - name: rabbitmq
         image: {{ .Values.rabbitmq.image }}
+        imagePullPolicy: Always
         ports:
         - name: amqp
           containerPort: 5672

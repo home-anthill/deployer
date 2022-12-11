@@ -61,6 +61,7 @@ spec:
       containers:
       - name: gui
         image: {{ .Values.gui.image }}
+        imagePullPolicy: Always
         env:
           {{- if .Values.mosquitto.ssl.enable }}
           - name: CERTBOT_EMAIL

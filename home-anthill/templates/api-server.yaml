@@ -58,6 +58,7 @@ spec:
       containers:
       - name: api-server
         image: {{ .Values.apiServer.image }}
+        imagePullPolicy: Always
         env:
         - name: ENV
           value: "prod"

@@ -24,11 +24,11 @@ data:
     {{ end -}}
     MQTT_CLIENT_ID=apiDevices
     {{- if .Values.mosquitto.auth.enable }}
-    MQTT_AUTH=false
+    MQTT_AUTH=true
     MQTT_USER={{ .Values.mosquitto.auth.username }}
     MQTT_PASSWORD={{ .Values.mosquitto.auth.password }}
     {{ else }}
-    MQTT_AUTH=true
+    MQTT_AUTH=false
     MQTT_USER=
     MQTT_PASSWORD=
     {{ end -}}
@@ -54,6 +54,7 @@ spec:
       containers:
       - name: api-devices
         image: {{ .Values.apiDevices.image }}
+        imagePullPolicy: Always
         env:
         - name: ENV
           value: "prod"
