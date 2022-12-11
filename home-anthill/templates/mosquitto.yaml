@@ -18,6 +18,12 @@ spec:
         image: {{ .Values.mosquitto.image }}
         {{- if .Values.mosquitto.ssl.enable }}
         env:
+        {{- if .Values.mosquitto.auth.enable }}
+        - name: MOSQUITTO_USERNAME
+          value: {{ .Values.mosquitto.auth.username }}
+        - name: MOSQUITTO_PASSWORD
+          value: {{ .Values.mosquitto.auth.password }}
+        {{- end }}
         - name: CERTBOT_EMAIL
           value: {{ .Values.mosquitto.ssl.certbot.email }}
         - name: CERTBOT_DOMAIN
@@ -25,6 +31,14 @@ spec:
         - name: CERTBOT_SERVER
           # use https://acme-staging-v02.api.letsencrypt.org/directory for staging server
           value: {{ .Values.mosquitto.ssl.certbot.server }}
+        {{- else }}
+        {{- if .Values.mosquitto.auth.enable }}
+        env:
+        - name: MOSQUITTO_USERNAME
+          value: {{ .Values.mosquitto.auth.username }}
+        - name: MOSQUITTO_PASSWORD
+          value: {{ .Values.mosquitto.auth.password }}
+        {{- end }}
         {{- end }}
         ports:
         # port 80 is required by certbot to get and renew certificates

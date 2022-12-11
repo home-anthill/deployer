@@ -22,6 +22,16 @@ data:
     MQTT_CERT_FILE=
     MQTT_KEY_FILE=
     {{ end -}}
+    MQTT_CLIENT_ID=apiDevices
+    {{- if .Values.mosquitto.auth.enable }}
+    MQTT_AUTH=false
+    MQTT_USER={{ .Values.mosquitto.auth.username }}
+    MQTT_PASSWORD={{ .Values.mosquitto.auth.password }}
+    {{ else }}
+    MQTT_AUTH=true
+    MQTT_USER=
+    MQTT_PASSWORD=
+    {{ end -}}
     GRPC_URL=0.0.0.0:50051
     GRPC_TLS=false
     CERT_FOLDER_PATH=
