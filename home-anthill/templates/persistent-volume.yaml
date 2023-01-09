@@ -1,6 +1,39 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
+  name: mosquitto-data-volume
+  namespace: {{ .Values.namespace }}
+  labels:
+    type: local
+spec:
+  storageClassName: ""
+  claimRef:
+    name: mosquitto-data-claim
+    namespace: {{ .Values.namespace }}
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: {{ .Values.mosquitto.dataFolder }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mosquitto-data-claim
+  namespace: {{ .Values.namespace }}
+spec:
+  storageClassName: ""
+  volumeName: mosquitto-data-volume
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
   name: nginx-conf-volume
   namespace: {{ .Values.namespace }}
   labels:

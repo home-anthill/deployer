@@ -55,17 +55,22 @@ spec:
           containerPort: 1883
           protocol: TCP
         {{- end }}
-        {{ if .Values.mosquitto.ssl.enable }}
         volumeMounts:
+          - mountPath: "/mosquitto/data/"
+            name: data
+          {{ if .Values.mosquitto.ssl.enable }}
           - name: lets-encrypt-ssl-mqtt-storage
             mountPath: "/etc/letsencrypt/"
-        {{ end }}
-      {{ if .Values.mosquitto.ssl.enable }}
+          {{ end }}
       volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mosquitto-data-claim
+        {{ if .Values.mosquitto.ssl.enable }}
         - name: lets-encrypt-ssl-mqtt-storage
           persistentVolumeClaim:
             claimName: lets-encrypt-ssl-mqtt-claim
-      {{ end }}
+        {{ end }}
 ---
 kind: Service
 apiVersion: v1

@@ -12,6 +12,7 @@ mosquitto:
   image: "ks89/mosquitto:master"
   letsEncryptCerts: "/root/lets-encrypt-certs-mqtt"
   publicIp: "9.8.7.6"
+  dataFolder: "/root/mosquitto-persistence-data"
   auth:
     enable: true
     username: "mosquittouser"
