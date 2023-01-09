@@ -5,7 +5,7 @@ metadata:
   name: api-server-config
   namespace: {{ .Values.namespace }}
 data:
-  .env_prod: |-
+  .env: |-
     MONGODB_URL={{ .Values.mongodbUrl }}
     {{- if .Values.gui.ssl.enable }}
     HTTP_SERVER=https://{{ .Values.domains.http }}
@@ -80,8 +80,8 @@ spec:
         {{- end }}
         volumeMounts:
         - name: api-server-config
-          mountPath: /.env_prod
-          subPath: .env_prod
+          mountPath: /.env
+          subPath: .env
           readOnly: true
         - name: api-server-config
           mountPath: /credentials.json
