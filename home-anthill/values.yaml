@@ -9,7 +9,7 @@ domains:
   mqtt: "mqtt-domain.com"
 
 mosquitto:
-  image: "ks89/mosquitto:master"
+  image: "ks89/mosquitto:v1.0.0-beta.1"
   letsEncryptCerts: "/root/lets-encrypt-certs-mqtt"
   publicIp: "9.8.7.6"
   dataFolder: "/root/mosquitto-persistence-data"
@@ -25,12 +25,12 @@ mosquitto:
       server: "https://acme-v02.api.letsencrypt.org/directory"
 
 apiDevices:
-  image: "ks89/api-devices:master"
+  image: "ks89/api-devices:v1.0.0-beta.1"
   grpc: 
     libraryLogEnable: false
 
 apiServer:
-  image: "ks89/api-server:master"
+  image: "ks89/api-server:v1.0.0-beta.1"
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
   cookieSecret: "@DbTN*jA"
@@ -42,7 +42,7 @@ apiServer:
     enable: true
 
 gui:
-  image: "ks89/gui:master"
+  image: "ks89/gui:v1.0.0-beta.1"
   nginxConf: "/root/nginx-conf"
   letsEncryptCerts: "/root/lets-encrypt-certs"
   publicIp: "1.2.3.4"
@@ -53,11 +53,6 @@ gui:
       # staging server is https://acme-staging-v02.api.letsencrypt.org/directory
       server: "https://acme-v02.api.letsencrypt.org/directory"
 
-certbot:
-  image: "ks89/certbot:master"
-  guiRenewSchedule: "0 0 * * *"
-  mqttRenewSchedule: "0 0 * * *"
-
 mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net"
 
 rabbitmq:
@@ -66,13 +61,13 @@ rabbitmq:
   password: "guest"
 
 register:
-  image: "ks89/register:master"
+  image: "ks89/register:v1.0.0-beta.1"
 
 producer:
-  image: "ks89/producer:master"
+  image: "ks89/producer:v1.0.0-beta.1"
 
 consumer:
-  image: "ks89/consumer:master"
+  image: "ks89/consumer:v1.0.0-beta.1"
 
 # debug configuration, not for production environment
 debug:
