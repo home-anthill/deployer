@@ -15,8 +15,8 @@ mosquitto:
   dataFolder: "/root/mosquitto-persistence-data"
   auth:
     enable: true
-    username: "mosquittouser"
-    password: "dHw77KHGQSmsQVX7gtvcufJH"
+    username: "mosquser"
+    password: "Password1!"
   ssl:
     enable: false
     certbot:
