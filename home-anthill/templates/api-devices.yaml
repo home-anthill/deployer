@@ -5,7 +5,7 @@ metadata:
   name: api-devices-config
   namespace: {{ .Values.namespace }}
 data:
-  .env_prod: |-
+  .env: |-
     MONGODB_URL={{ .Values.mongodbUrl }}
     {{- if .Values.mosquitto.ssl.enable }}
     MQTT_URL=mqtts://{{ .Values.domains.mqtt }}
@@ -70,8 +70,8 @@ spec:
           protocol: TCP
         volumeMounts:
         - name: api-devices-config
-          mountPath: /.env_prod
-          subPath: .env_prod
+          mountPath: /.env
+          subPath: .env
           readOnly: true
         {{ if .Values.mosquitto.ssl.enable }}
         - name: lets-encrypt-ssl-mqtt-storage
