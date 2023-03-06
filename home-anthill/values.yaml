@@ -30,7 +30,7 @@ apiDevices:
     libraryLogEnable: false
 
 apiServer:
-  image: "ks89/api-server:v1.0.0-beta.3"
+  image: "ks89/api-server:v1.0.0-beta.4"
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
   cookieSecret: "@DbTN*jA"
@@ -42,7 +42,7 @@ apiServer:
     enable: true
 
 gui:
-  image: "ks89/gui:v1.0.0-beta.2"
+  image: "ks89/gui:v1.0.0-beta.3"
   nginxConf: "/root/nginx-conf"
   letsEncryptCerts: "/root/lets-encrypt-certs"
   publicIp: "1.2.3.4"
