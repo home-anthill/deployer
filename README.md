@@ -19,6 +19,7 @@ GitHub releases [HERE](https://github.com/home-anthill/deployer/releases)
 
 Versions:
 
+- 10/03/2023 - 1.0.0-beta.9
 - 08/03/2023 - 1.0.0-beta.8
 - 07/03/2023 - 1.0.0-beta.7
 - 06/03/2023 - 1.0.0-beta.6

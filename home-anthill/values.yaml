@@ -42,7 +42,7 @@ apiServer:
     enable: true
 
 gui:
-  image: "ks89/gui:v1.0.0-beta.3"
+  image: "ks89/gui:v1.0.0-beta.4"
   nginxConf: "/root/nginx-conf"
   letsEncryptCerts: "/root/lets-encrypt-certs"
   publicIp: "1.2.3.4"
