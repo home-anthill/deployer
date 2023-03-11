@@ -64,10 +64,10 @@ register:
   image: "ks89/register:v1.0.0-beta.3"
 
 producer:
-  image: "ks89/producer:v1.0.0-beta.2"
+  image: "ks89/producer:v1.0.0-beta.3"
 
 consumer:
-  image: "ks89/consumer:v1.0.0-beta.3"
+  image: "ks89/consumer:v1.0.0-beta.4"
 
 # debug configuration, not for production environment
 debug:
