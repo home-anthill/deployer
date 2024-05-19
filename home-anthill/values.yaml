@@ -9,7 +9,7 @@ domains:
   mqtt: "mqtt-domain.com"
 
 mosquitto:
-  image: "ks89/mosquitto:v1.0.0"
+  image: "ks89/mosquitto:v1.0.1"
   letsEncryptCerts: "/root/lets-encrypt-certs-mqtt"
   publicIp: "9.8.7.6"
   dataFolder: "/root/mosquitto-persistence-data"
