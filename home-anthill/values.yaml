@@ -25,12 +25,12 @@ mosquitto:
       server: "https://acme-v02.api.letsencrypt.org/directory"
 
 apiDevices:
-  image: "ks89/api-devices:v1.0.0"
+  image: "ks89/api-devices:v1.1.0"
   grpc: 
     libraryLogEnable: false
 
 apiServer:
-  image: "ks89/api-server:v1.0.0"
+  image: "ks89/api-server:v1.1.0"
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
   cookieSecret: "@DbTN*jA"
@@ -42,7 +42,7 @@ apiServer:
     enable: true
 
 gui:
-  image: "ks89/gui:v1.0.0"
+  image: "ks89/gui:v1.1.0"
   nginxConf: "/root/nginx-conf"
   letsEncryptCerts: "/root/lets-encrypt-certs"
   publicIp: "1.2.3.4"
