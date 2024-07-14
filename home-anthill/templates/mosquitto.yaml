@@ -1,3 +1,35 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-config
+  namespace: {{ .Values.namespace }}
+data:
+  mosquitto.conf: |-
+    persistence true
+    persistence_location /mosquitto/data
+    allow_anonymous true
+    connection_messages true
+    log_type all
+
+    {{- if .Values.domains.mqtt.ssl.enable }}
+    # secure connection are available externally
+    listener 8883
+    # taken from https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-the-mosquitto-mqtt-messaging-broker-on-ubuntu-18-04
+    # I need to copy let's encrypt files to another destination to be able
+    # to set right owner and permissions
+    certfile /etc/mosquitto/certs/cert.pem
+    cafile /etc/mosquitto/certs/chain.pem
+    keyfile /etc/mosquitto/certs/privkey.pem
+    {{- else }}
+    # insecure connections via 1883 disabled
+    listener 1883
+    {{- end }}
+
+    {{- if .Values.mosquitto.auth.enable }}
+    password_file /etc/mosquitto/password_file
+    {{- end }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,36 +49,21 @@ spec:
       - name: mosquitto
         image: {{ .Values.mosquitto.image }}
         imagePullPolicy: Always
-        {{- if .Values.mosquitto.ssl.enable }}
         env:
+        {{ if .Values.domains.mqtt.ssl.enable }}
+        - name: MOSQUITTO_SSL_ENABLE
+          value: "true"
+        - name: LETSENCRYPT_SERVER_ENV
+          value: {{ .Values.letsencrypt.server.env }}
+        {{- end }}
         {{- if .Values.mosquitto.auth.enable }}
         - name: MOSQUITTO_USERNAME
           value: {{ .Values.mosquitto.auth.username }}
         - name: MOSQUITTO_PASSWORD
           value: {{ .Values.mosquitto.auth.password }}
-        {{- end }}
-        - name: CERTBOT_EMAIL
-          value: {{ .Values.mosquitto.ssl.certbot.email }}
-        - name: CERTBOT_DOMAIN
-          value: {{ .Values.domains.mqtt }}
-        - name: CERTBOT_SERVER
-          # use https://acme-staging-v02.api.letsencrypt.org/directory for staging server
-          value: {{ .Values.mosquitto.ssl.certbot.server }}
-        {{- else }}
-        {{- if .Values.mosquitto.auth.enable }}
-        env:
-        - name: MOSQUITTO_USERNAME
-          value: {{ .Values.mosquitto.auth.username }}
-        - name: MOSQUITTO_PASSWORD
-          value: {{ .Values.mosquitto.auth.password }}
-        {{- end }}
         {{- end }}
         ports:
-        # port 80 is required by certbot to get and renew certificates
-        - name: http
-          containerPort: 80
-          protocol: TCP
-        {{- if .Values.mosquitto.ssl.enable }}
+        {{- if .Values.domains.mqtt.ssl.enable }}
         - name: mqtts
           containerPort: 8883
           protocol: TCP
@@ -56,20 +73,36 @@ spec:
           protocol: TCP
         {{- end }}
         volumeMounts:
-          - mountPath: "/mosquitto/data/"
-            name: data
-          {{ if .Values.mosquitto.ssl.enable }}
-          - name: lets-encrypt-ssl-mqtt-storage
-            mountPath: "/etc/letsencrypt/"
+          - name: data
+            mountPath: "/mosquitto/data"
+          - name: mosquitto-config
+            mountPath: /mosquitto/config/mosquitto.conf
+            subPath: mosquitto.conf
+            readOnly: true
+          {{ if .Values.domains.mqtt.ssl.enable }}
+          # mount tls certificate to be read from the app
+          - name: tls
+            # mount certificates here, but the container run.sh script
+            # will copy these files to be used by mosquitto
+            mountPath: "/tls"
+            readOnly: true
           {{ end }}
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: mosquitto-data-claim
-        {{ if .Values.mosquitto.ssl.enable }}
-        - name: lets-encrypt-ssl-mqtt-storage
-          persistentVolumeClaim:
-            claimName: lets-encrypt-ssl-mqtt-claim
+        - name: mosquitto-config
+          configMap:
+            name: mosquitto-config
+        {{ if .Values.domains.mqtt.ssl.enable }}
+        # volume to get tls certificate from certmanager via csi-driver
+        - name: tls
+          csi:
+            driver: csi.cert-manager.io
+            readOnly: true
+            volumeAttributes:
+              csi.cert-manager.io/issuer-name: cert-issuer-mqtt
+              csi.cert-manager.io/dns-names: "{{ .Values.domains.mqtt.name }}"
         {{ end }}
 ---
 kind: Service
@@ -78,17 +111,10 @@ metadata:
   name: mosquitto-svc
   namespace: {{ .Values.namespace }}
 spec:
-  loadBalancerIP: {{ .Values.mosquitto.publicIp }}
-  type: LoadBalancer
   selector:
     app: mosquitto
   ports:
-    # port 80 is required by certbot to get and renew certificates
-    - name: http
-      protocol: TCP
-      port: 80
-      targetPort: http
-    {{- if .Values.mosquitto.ssl.enable }}
+    {{- if .Values.domains.mqtt.ssl.enable }}
     # expose mqtts port
     - name: mqtts
       protocol: TCP

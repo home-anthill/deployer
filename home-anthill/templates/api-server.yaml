@@ -7,19 +7,8 @@ metadata:
 data:
   .env: |-
     MONGODB_URL={{ .Values.mongodbUrl }}
-    {{- if .Values.gui.ssl.enable }}
-    HTTP_SERVER=https://{{ .Values.domains.http }}
-    HTTP_PORT=443
-    HTTP_TLS=true
-    HTTP_CERT_FILE=/etc/letsencrypt/live/{{ .Values.domains.http }}/fullchain.pem
-    HTTP_KEY_FILE=/etc/letsencrypt/live/{{ .Values.domains.http }}/privkey.pem
-    {{ else }}
-    HTTP_SERVER=http://{{ .Values.domains.http }}
+    HTTP_SERVER=http://{{ .Values.domains.http.name }}
     HTTP_PORT=80
-    HTTP_TLS=false
-    HTTP_CERT_FILE=
-    HTTP_KEY_FILE=
-    {{ end -}}
     HTTP_CORS=false
     HTTP_SENSOR_SERVER=http://register-svc.{{ .Values.namespace }}.svc.cluster.local
     HTTP_SENSOR_PORT=80
@@ -69,15 +58,9 @@ spec:
           value: "2"
         {{- end }}
         ports:
-        {{- if .Values.gui.ssl.enable }}
-        - name: https
-          containerPort: 443
-          protocol: TCP
-        {{- else }}
         - name: http
           containerPort: 80
           protocol: TCP
-        {{- end }}
         volumeMounts:
         - name: api-server-config
           mountPath: /.env
@@ -87,19 +70,10 @@ spec:
           mountPath: /credentials.json
           subPath: credentials.json
           readOnly: true
-        {{ if .Values.gui.ssl.enable }}
-        - name: lets-encrypt-ssl-storage
-          mountPath: "/etc/letsencrypt/"
-        {{ end }}
       volumes:
       - name: api-server-config
         configMap:
           name: api-server-config
-      {{ if .Values.gui.ssl.enable }}
-      - name: lets-encrypt-ssl-storage
-        persistentVolumeClaim:
-          claimName: lets-encrypt-ssl-claim
-      {{ end }}
 ---
 kind: Service
 apiVersion: v1
@@ -110,14 +84,7 @@ spec:
   selector:
     app: api-server
   ports:
-    {{- if .Values.gui.ssl.enable }}
-    - name: https
-      protocol: TCP
-      port: 443
-      targetPort: https
-    {{- else }}
     - name: http
       protocol: TCP
       port: 80
       targetPort: http
-    {{- end }}

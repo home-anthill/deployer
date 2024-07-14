@@ -5,24 +5,41 @@ namespace: home-anthill
 domainName: "your-domain.com"
 
 domains:
-  http: "your-domain.com"
-  mqtt: "mqtt-domain.com"
+  http: 
+    name: "your-domain.com"
+    publicIp: "1.2.3.4"
+    ssl:
+      enable: false
+      
+  mqtt: 
+    name: "mqtt-domain.com"
+    publicIp: "9.8.7.6"
+    ssl:
+      enable: false
 
+letsencrypt:
+  email: "your.email@emailexample.com"
+  server:
+    env: "prod"
+    path: "https://acme-v02.api.letsencrypt.org/directory"
+  # server:
+  #   # attention: if you want to use staging server, you should update CA cert in sensors and devices firmwares,
+  #   # because firmwares have the let's encrypt rootCA, but for staging you should use the public cert as CA 
+  #   env: "staging"
+  #   path: "https://acme-staging-v02.api.letsencrypt.org/directory"
+
+# public MQTT server
 mosquitto:
-  image: "ks89/mosquitto:v1.0.1"
-  letsEncryptCerts: "/root/lets-encrypt-certs-mqtt"
-  publicIp: "9.8.7.6"
+  image: "ks89/mosquitto:v2.0.0"
   dataFolder: "/root/mosquitto-persistence-data"
   auth:
     enable: true
     username: "mosquser"
     password: "Password1!"
-  ssl:
-    enable: false
-    certbot:
-      email: "your.email@emailexample.com"
-      # staging server is https://acme-staging-v02.api.letsencrypt.org/directory
-      server: "https://acme-v02.api.letsencrypt.org/directory"
+
+# web app
+gui:
+  image: "ks89/gui:v2.0.0"
 
 apiDevices:
   image: "ks89/api-devices:v1.1.0"
@@ -30,7 +47,7 @@ apiDevices:
     libraryLogEnable: false
 
 apiServer:
-  image: "ks89/api-server:v1.1.0"
+  image: "ks89/api-server:v1.2.0"
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
   cookieSecret: "@DbTN*jA"
@@ -40,18 +57,6 @@ apiServer:
     libraryLogEnable: false
   sensors:
     enable: true
-
-gui:
-  image: "ks89/gui:v1.1.0"
-  nginxConf: "/root/nginx-conf"
-  letsEncryptCerts: "/root/lets-encrypt-certs"
-  publicIp: "1.2.3.4"
-  ssl:
-    enable: false
-    certbot:
-      email: "your.email@emailexample.com"
-      # staging server is https://acme-staging-v02.api.letsencrypt.org/directory
-      server: "https://acme-v02.api.letsencrypt.org/directory"
 
 mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net"
 

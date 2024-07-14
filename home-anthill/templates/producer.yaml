@@ -8,14 +8,17 @@ data:
   .env: |-
     AMQP_URI=amqp://rabbitmq-svc.{{ .Values.namespace }}.svc.cluster.local:5672
     AMQP_QUEUE_NAME=ks89
-    {{- if .Values.mosquitto.ssl.enable }}
-    MQTT_URL={{ .Values.domains.mqtt }}
+    {{- if .Values.domains.mqtt.ssl.enable }}
+    MQTT_URL={{ .Values.domains.mqtt.name }}
     MQTT_PORT=8883
     MQTT_TLS=true
+    {{- if eq "prod" .Values.letsencrypt.server.env  }}
     ROOT_CA=/etc/ssl/certs/ISRG_Root_X1.pem
-    # ca.pem = ISRG_Root_X1.pem + cert.pem
-    MQTT_CERT_FILE=/etc/letsencrypt/live/{{ .Values.domains.mqtt }}/cert.pem
-    MQTT_KEY_FILE=/etc/letsencrypt/live/{{ .Values.domains.mqtt }}/privkey.pem
+    {{ else }}
+    ROOT_CA=/tls/tls.crt
+    {{ end -}}
+    MQTT_CERT_FILE=/tls/tls.crt
+    MQTT_KEY_FILE=/tls/tls.key
     {{ else }}
     MQTT_URL=mosquitto-svc.{{ .Values.namespace }}.svc.cluster.local
     MQTT_PORT=1883
@@ -64,7 +67,7 @@ spec:
         - name: amqp
           containerPort: 5672
           protocol: TCP
-        {{- if .Values.mosquitto.ssl.enable }}
+        {{- if .Values.domains.mqtt.ssl.enable }}
         - name: mqtts
           containerPort: 8883
           protocol: TCP
@@ -78,18 +81,27 @@ spec:
           mountPath: /app/.env
           subPath: .env
           readOnly: true
-        {{ if .Values.mosquitto.ssl.enable }}
-        - name: lets-encrypt-ssl-mqtt-storage
-          mountPath: "/etc/letsencrypt/"
+        {{ if .Values.domains.mqtt.ssl.enable }}
+        # mount tls certificate to be read from the app
+        - name: tls
+          # mount certificates here, but the container run.sh script
+          # will copy these files to be used by mosquitto
+          mountPath: "/tls"
+          readOnly: true
         {{ end }}
       volumes:
       - name: producer-config
         configMap:
           name: producer-config
-      {{ if .Values.mosquitto.ssl.enable }}
-      - name: lets-encrypt-ssl-mqtt-storage
-        persistentVolumeClaim:
-          claimName: lets-encrypt-ssl-mqtt-claim
+      {{ if .Values.domains.mqtt.ssl.enable }}
+      # volume to get tls certificate from certmanager via csi-driver
+      - name: tls
+        csi:
+          driver: csi.cert-manager.io
+          readOnly: true
+          volumeAttributes:
+            csi.cert-manager.io/issuer-name: cert-issuer-mqtt
+            csi.cert-manager.io/dns-names: "{{ .Values.domains.mqtt.name }}"
       {{ end }}
 ---
 kind: Service
@@ -101,7 +113,7 @@ spec:
   selector:
     app: producer
   ports:
-    {{- if .Values.mosquitto.ssl.enable }}
+    {{- if .Values.domains.mqtt.ssl.enable }}
     # expose mqtts port
     - name: mqtts
       protocol: TCP

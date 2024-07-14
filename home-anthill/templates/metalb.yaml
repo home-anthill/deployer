@@ -7,8 +7,8 @@ metadata:
   namespace: metallb-system
 spec:
   addresses:
-  - {{ .Values.gui.publicIp }}/24
-  - {{ .Values.mosquitto.publicIp }}/24
+  - {{ .Values.domains.http.publicIp }}/24
+  - {{ .Values.domains.mqtt.publicIp }}/24
 status: {}
 ---
 apiVersion: metallb.io/v1beta1
