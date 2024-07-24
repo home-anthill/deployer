@@ -14,10 +14,10 @@ data:
     {{- if eq "prod" .Values.letsencrypt.server.env  }}
     MQTT_CA_FILE=/etc/ssl/certs/ISRG_Root_X1.pem
     {{ else }}
-    MQTT_CA_FILE=/tls/tls.crt
+    MQTT_CA_FILE=/tls-cert/tls.crt
     {{ end -}}
-    MQTT_CERT_FILE=/tls/tls.crt
-    MQTT_KEY_FILE=/tls/tls.key
+    MQTT_CERT_FILE=/tls-cert/tls.crt
+    MQTT_KEY_FILE=/tls-cert/tls.key
     {{ else }}
     MQTT_URL=mqtt://mosquitto-svc.{{ .Values.namespace }}.svc.cluster.local
     MQTT_PORT=1883
@@ -55,6 +55,20 @@ spec:
       labels:
         app: api-devices
     spec:
+      initContainers:
+        - name: init-certs
+          image: alpine
+          command: 
+            - "/bin/sh"
+            - "-c"
+            - |
+              cp /etc/tls/cert-issuer-mqtt/tls.crt /tls-cert/tls.crt
+              cp /etc/tls/cert-issuer-mqtt/tls.key /tls-cert/tls.key
+          volumeMounts:
+            - name: tls
+              mountPath: /tls-cert
+            - name: certmqtt
+              mountPath: /etc/tls/cert-issuer-mqtt
       containers:
       - name: api-devices
         image: {{ .Values.apiDevices.image }}
@@ -73,32 +87,21 @@ spec:
           containerPort: 50051
           protocol: TCP
         volumeMounts:
-        - name: api-devices-config
-          mountPath: /.env
-          subPath: .env
-          readOnly: true
-        {{ if .Values.domains.mqtt.ssl.enable }}
-        # mount tls certificate to be read from the app
-        - name: tls
-          # mount certificates here, but the container run.sh script
-          # will copy these files to be used by mosquitto
-          mountPath: "/tls"
-          readOnly: true
-        {{ end }}
+          - name: api-devices-config
+            mountPath: /.env
+            subPath: .env
+            readOnly: true
+          - name: tls
+            mountPath: /tls-cert
       volumes:
-      - name: api-devices-config
-        configMap:
-          name: api-devices-config
-      {{ if .Values.domains.mqtt.ssl.enable }}
-      # volume to get tls certificate from certmanager via csi-driver
-      - name: tls
-        csi:
-          driver: csi.cert-manager.io
-          readOnly: true
-          volumeAttributes:
-            csi.cert-manager.io/issuer-name: cert-issuer-mqtt
-            csi.cert-manager.io/dns-names: "{{ .Values.domains.mqtt.name }}"
-      {{ end }}
+        - name: api-devices-config
+          configMap:
+            name: api-devices-config
+        - name: certmqtt
+          secret:
+            secretName: mqtt-tls
+        - name: tls
+          emptyDir: {}
 ---
 kind: Service
 apiVersion: v1

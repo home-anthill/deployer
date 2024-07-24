@@ -45,6 +45,27 @@ spec:
       labels:
         app: mosquitto
     spec:
+      initContainers:
+        - name: init-certs
+          image: alpine
+          command: 
+            - "/bin/sh"
+            - "-c"
+            - |
+              echo "copying certificates from certmanager"
+              cp "/etc/tls/cert-issuer-mqtt/tls.crt" /etc/mosquitto/certs/cert.pem
+              cp "/etc/tls/cert-issuer-mqtt/tls.key" /etc/mosquitto/certs/privkey.pem
+
+              {{- if eq "prod" .Values.letsencrypt.server.env  }}
+              cp "/etc/ssl/certs/ca-certificates.crt" /etc/mosquitto/certs/chain.pem
+              {{- else }}
+              cp "/etc/tls/cert-issuer-mqtt/tls.crt" /etc/mosquitto/certs/chain.pem
+              {{- end }}
+          volumeMounts:
+            - name: mosquitto-certs
+              mountPath: /etc/mosquitto/certs/
+            - name: certmqtt
+              mountPath: /etc/tls/cert-issuer-mqtt
       containers:
       - name: mosquitto
         image: {{ .Values.mosquitto.image }}
@@ -53,8 +74,6 @@ spec:
         {{ if .Values.domains.mqtt.ssl.enable }}
         - name: MOSQUITTO_SSL_ENABLE
           value: "true"
-        - name: LETSENCRYPT_SERVER_ENV
-          value: {{ .Values.letsencrypt.server.env }}
         {{- end }}
         {{- if .Values.mosquitto.auth.enable }}
         - name: MOSQUITTO_USERNAME
@@ -79,14 +98,20 @@ spec:
             mountPath: /mosquitto/config/mosquitto.conf
             subPath: mosquitto.conf
             readOnly: true
-          {{ if .Values.domains.mqtt.ssl.enable }}
-          # mount tls certificate to be read from the app
-          - name: tls
-            # mount certificates here, but the container run.sh script
-            # will copy these files to be used by mosquitto
-            mountPath: "/tls"
-            readOnly: true
-          {{ end }}
+          - name: mosquitto-certs
+            mountPath: /etc/mosquitto/certs/
+        lifecycle:
+          postStart:
+            exec:
+              command: 
+                - "/bin/sh"
+                - "-c"
+                - |
+                  echo "setting certificates ownership to Mosquitto"
+                  chown mosquitto: /etc/mosquitto/certs/cert.pem /etc/mosquitto/certs/chain.pem /etc/mosquitto/certs/privkey.pem
+
+                  echo "ensuring permissions as restrictive"
+                  chmod 0600 /etc/mosquitto/certs/cert.pem /etc/mosquitto/certs/chain.pem /etc/mosquitto/certs/privkey.pem
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -94,16 +119,11 @@ spec:
         - name: mosquitto-config
           configMap:
             name: mosquitto-config
-        {{ if .Values.domains.mqtt.ssl.enable }}
-        # volume to get tls certificate from certmanager via csi-driver
-        - name: tls
-          csi:
-            driver: csi.cert-manager.io
-            readOnly: true
-            volumeAttributes:
-              csi.cert-manager.io/issuer-name: cert-issuer-mqtt
-              csi.cert-manager.io/dns-names: "{{ .Values.domains.mqtt.name }}"
-        {{ end }}
+        - name: certmqtt
+          secret:
+            secretName: mqtt-tls
+        - name: mosquitto-certs
+          emptyDir: {}
 ---
 kind: Service
 apiVersion: v1
