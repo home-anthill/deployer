@@ -12,7 +12,7 @@ data:
     MQTT_PORT=8883
     MQTT_TLS=true
     {{- if eq "prod" .Values.letsencrypt.server.env  }}
-    MQTT_CA_FILE=/etc/ssl/certs/ISRG_Root_X1.pem
+    MQTT_CA_FILE=/etc/ssl/certs/ca-certificates.crt
     {{ else }}
     MQTT_CA_FILE=/tls-cert/tls.crt
     {{ end -}}
