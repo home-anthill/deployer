@@ -19,6 +19,7 @@ GitHub releases [HERE](https://github.com/home-anthill/deployer/releases)
 
 Versions:
 
+- 27/07/2024 - 2.0.2
 - 27/07/2024 - 2.0.1
 - 27/07/2024 - 2.0.0
 - 25/05/2024 - 1.1.0
