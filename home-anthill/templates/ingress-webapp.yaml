@@ -13,6 +13,7 @@ metadata:
       add_header X-Content-Type-Options nosniff;
       add_header Referrer-Policy 'same-origin';
       add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()";
+      more_set_headers "Content-Security-Policy: child-src 'none'; connect-src 'self' https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.googleapis.com/ https://*.gstatic.com/; default-src 'none'; font-src 'self' https://*.gstatic.com/; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; img-src 'self' data: https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.gstatic.com/ https://*.githubusercontent.com/; manifest-src 'self'; media-src 'none'; object-src 'none'; sandbox allow-forms allow-scripts allow-same-origin allow-popups; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://*.googleapis.com/; worker-src 'self' https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.googleapis.com/ https://*.gstatic.com/; base-uri 'self'; require-trusted-types-for 'script'";
   {{- end }}
   namespace: {{ .Values.namespace }}
 spec:
