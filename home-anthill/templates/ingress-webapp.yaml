@@ -6,8 +6,13 @@ metadata:
   {{- if .Values.domains.http.ssl.enable }}
   annotations:
     cert-manager.io/issuer: "cert-issuer-webapp"
+    nginx.ingress.kubernetes.io/rewrite-target: "/"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/redirect-to-https: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/client-max-body-size: "100m"
+    nginx.ingress.kubernetes.io/limit-rps: "100"
     nginx.ingress.kubernetes.io/configuration-snippet: |
       add_header X-Frame-Options "sameorigin";
       add_header X-Content-Type-Options nosniff;
@@ -22,13 +27,23 @@ spec:
   tls:
   - hosts:
     - {{ .Values.domains.http.name }}
+    - "www.{{ .Values.domains.http.name }}"
     secretName: webapp-tls
   {{- end }}
   rules:
   - host: {{ .Values.domains.http.name }}
     http:
       paths:
-      # use the gui nginx server as backend
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: gui-svc
+            port:
+              number: 80
+  - host: "www.{{ .Values.domains.http.name }}"
+    http:
+      paths:
       - path: /
         pathType: Prefix
         backend:
