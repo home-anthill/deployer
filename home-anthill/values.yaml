@@ -42,7 +42,7 @@ gui:
   image: "ks89/gui:v2.0.0"
 
 apiDevices:
-  image: "ks89/api-devices:v1.1.0"
+  image: "ks89/api-devices:v1.1.1"
   grpc: 
     libraryLogEnable: false
 
