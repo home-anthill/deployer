@@ -66,13 +66,13 @@ rabbitmq:
   password: "guest"
 
 register:
-  image: "ks89/register:v1.0.1"
+  image: "ks89/register:v1.1.0"
 
 producer:
-  image: "ks89/producer:v1.0.1"
+  image: "ks89/producer:v1.0.2"
 
 consumer:
-  image: "ks89/consumer:v1.0.1"
+  image: "ks89/consumer:v1.1.0"
 
 # debug configuration, not for production environment
 debug:
