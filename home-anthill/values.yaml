@@ -47,7 +47,7 @@ apiDevices:
     libraryLogEnable: false
 
 apiServer:
-  image: "ks89/api-server:v1.3.0"
+  image: "ks89/api-server:v1.3.1"
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
   cookieSecret: "@DbTN*jA"

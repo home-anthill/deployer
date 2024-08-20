@@ -9,6 +9,7 @@ data:
     MONGODB_URL={{ .Values.mongodbUrl }}
     HTTP_SERVER=http://{{ .Values.domains.http.name }}
     HTTP_PORT=80
+    OAUTH_CALLBACK=http://{{ .Values.domains.http.name }}/api/callback
     HTTP_CORS=false
     HTTP_SENSOR_SERVER=http://register-svc.{{ .Values.namespace }}.svc.cluster.local
     HTTP_SENSOR_PORT=80
