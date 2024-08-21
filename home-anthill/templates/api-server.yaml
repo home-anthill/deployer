@@ -49,6 +49,17 @@ spec:
       - name: api-server
         image: {{ .Values.apiServer.image }}
         imagePullPolicy: Always
+        readinessProbe:
+          httpGet:
+            path: /api/keepalive
+            port: http
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /api/keepalive
+            port: http
+          periodSeconds: 60
+          failureThreshold: 2
         env:
         - name: ENV
           value: "prod"

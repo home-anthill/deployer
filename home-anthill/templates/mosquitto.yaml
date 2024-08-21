@@ -82,15 +82,9 @@ spec:
           value: {{ .Values.mosquitto.auth.password }}
         {{- end }}
         ports:
-        {{- if .Values.domains.mqtt.ssl.enable }}
-        - name: mqtts
-          containerPort: 8883
+        - name: {{ .Values.domains.mqtt.ssl.enable | ternary "mqtts" "mqtt" }}
+          containerPort: {{ .Values.domains.mqtt.ssl.enable | ternary 8883 1883 }}
           protocol: TCP
-        {{- else }}
-        - name: mqtt
-          containerPort: 1883
-          protocol: TCP
-        {{- end }}
         volumeMounts:
           - name: data
             mountPath: "/mosquitto/data"

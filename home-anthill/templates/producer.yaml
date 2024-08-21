@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   .env: |-
-    AMQP_URI=amqp://rabbitmq-svc.{{ .Values.namespace }}.svc.cluster.local:5672
+    AMQP_URI=amqp://{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}@rabbitmq.{{ .Values.namespace }}.svc.cluster.local:5672
     AMQP_QUEUE_NAME=ks89
     {{- if .Values.domains.mqtt.ssl.enable }}
     MQTT_URL={{ .Values.domains.mqtt.name }}
@@ -73,6 +73,17 @@ spec:
         {{- if .Values.debug.pods.alwaysPullContainers }}
         imagePullPolicy: Always
         {{- end }}
+        # readinessProbe:
+        #   httpGet:
+        #     path: /api/keepalive
+        #     port: http
+        #   periodSeconds: 30
+        # livenessProbe:
+        #   httpGet:
+        #     path: /api/keepalive
+        #     port: http
+        #   periodSeconds: 60
+        #   failureThreshold: 2
         {{- if .Values.debug.pods.sleepInfinity }}
         command: ["/bin/sh"]
         args: ["-c", "chmod +x /app/producer; /app/producer; sleep Infinity;"]

@@ -73,6 +73,14 @@ spec:
       - name: api-devices
         image: {{ .Values.apiDevices.image }}
         imagePullPolicy: Always
+        readinessProbe:
+          grpc:
+            port: 50051
+          periodSeconds: 10
+        livenessProbe:
+          grpc:
+            port: 50051
+          periodSeconds: 10
         env:
         - name: ENV
           value: "prod"

@@ -1,44 +1,48 @@
-apiVersion: apps/v1
-kind: Deployment
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rabbitmq-secret
+  namespace: {{ .Values.namespace }}
+type: Opaque
+stringData:
+  username: {{ .Values.rabbitmq.user }}
+  password: {{ .Values.rabbitmq.password }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
 metadata:
   name: rabbitmq
   namespace: {{ .Values.namespace }}
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: rabbitmq
-  template:
-    metadata:
-      labels:
-        app: rabbitmq
-    spec:
-      containers:
-      - name: rabbitmq
-        image: {{ .Values.rabbitmq.image }}
-        imagePullPolicy: Always
-        ports:
-        - name: amqp
-          containerPort: 5672
-          protocol: TCP
-        # - name: mgmt
-        #   containerPort: 15672
-        #   protocol: TCP
 ---
-kind: Service
-apiVersion: v1
+apiVersion: rabbitmq.com/v1beta1
+kind: User
 metadata:
-  name: rabbitmq-svc
+  name: rabbitmq-user
   namespace: {{ .Values.namespace }}
 spec:
-  selector:
-    app: rabbitmq
-  ports:
-    - name: amqp
-      protocol: TCP
-      port: 5672
-      targetPort: amqp
-    # - name: mgmt
-    #   protocol: TCP
-    #   port: 15672
-    #   targetPort: mgmt
+  tags:
+  - management
+  - policymaker
+  - monitoring
+  - administrator
+  rabbitmqClusterReference:
+    name: rabbitmq
+  importCredentialsSecret:
+    name: rabbitmq-secret
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Permission
+metadata:
+  name: rabbitmq-permission
+  namespace: {{ .Values.namespace }}
+spec:
+  vhost: "/"
+  user: "{{ .Values.rabbitmq.user }}"
+  permissions:
+    write: ".*"
+    configure: ".*"
+    read: ".*"
+  rabbitmqClusterReference:
+    name: rabbitmq
+

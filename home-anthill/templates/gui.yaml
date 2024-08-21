@@ -58,6 +58,17 @@ spec:
       - name: gui
         image: {{ .Values.gui.image }}
         imagePullPolicy: Always
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          periodSeconds: 60
+          failureThreshold: 2
         ports:
           # always enabled to redirect to https
           - name: http

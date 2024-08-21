@@ -42,12 +42,12 @@ gui:
   image: "ks89/gui:v2.0.0"
 
 apiDevices:
-  image: "ks89/api-devices:v1.1.1"
+  image: "ks89/api-devices:v1.1.2"
   grpc: 
     libraryLogEnable: false
 
 apiServer:
-  image: "ks89/api-server:v1.3.1"
+  image: "ks89/api-server:v1.3.2"
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
   cookieSecret: "@DbTN*jA"
@@ -62,11 +62,11 @@ mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net"
 
 rabbitmq:
   image: "rabbitmq:3-management"
-  user: "guest"
-  password: "guest"
+  user: "rabbituser"
+  password: "rabbitpassword"
 
 register:
-  image: "ks89/register:v1.1.0"
+  image: "ks89/register:v1.1.1"
 
 producer:
   image: "ks89/producer:v1.0.2"
