@@ -63,7 +63,7 @@ mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net"
 rabbitmq:
   image: "rabbitmq:3-management"
   user: "rabbituser"
-  password: "rabbitpassword"
+  password: "rabbitpassword" # dafauult value, please replace this with your custom valves file
 
 register:
   image: "ks89/register:v1.1.1"
