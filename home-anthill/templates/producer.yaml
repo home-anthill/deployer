@@ -74,14 +74,22 @@ spec:
         imagePullPolicy: Always
         {{- end }}
         # readinessProbe:
-        #   httpGet:
-        #     path: /api/keepalive
-        #     port: http
+        #   exec:
+        #     command:
+        #     - curl
+        #     - -f
+        #     - --user
+        #     - "{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}"
+        #     - rabbitmq.{{ .Values.namespace }}.svc.cluster.local:15672/api/health/checks/virtual-hosts
         #   periodSeconds: 30
         # livenessProbe:
-        #   httpGet:
-        #     path: /api/keepalive
-        #     port: http
+        #   exec:
+        #     command:
+        #     - curl
+        #     - -f
+        #     - --user
+        #     - "{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}"
+        #     - rabbitmq.{{ .Values.namespace }}.svc.cluster.local:15672/api/health/checks/virtual-hosts
         #   periodSeconds: 60
         #   failureThreshold: 2
         {{- if .Values.debug.pods.sleepInfinity }}

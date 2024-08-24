@@ -70,6 +70,42 @@ spec:
       - name: mosquitto
         image: {{ .Values.mosquitto.image }}
         imagePullPolicy: Always
+        readinessProbe:
+          exec:
+            command:
+            - mosquitto_pub
+            - -h
+            - localhost
+            - -p
+            - "{{ .Values.domains.mqtt.ssl.enable | ternary 8883 1883 }}"
+            - -u
+            - "{{ .Values.mosquitto.auth.username }}"
+            - -P
+            - "{{ .Values.mosquitto.auth.password }}"
+            - -m
+            - "readiness_probe"
+            - -t
+            - readiness
+            - --insecure
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command:
+            - mosquitto_pub
+            - -h
+            - localhost
+            - -p
+            - "{{ .Values.domains.mqtt.ssl.enable | ternary 8883 1883 }}"
+            - -u
+            - "{{ .Values.mosquitto.auth.username }}"
+            - -P
+            - "{{ .Values.mosquitto.auth.password }}"
+            - -m
+            - "readiness_probe"
+            - -t
+            - readiness
+            - --insecure
+          periodSeconds: 60
         env:
         {{ if .Values.domains.mqtt.ssl.enable }}
         - name: MOSQUITTO_SSL_ENABLE
