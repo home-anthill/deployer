@@ -69,7 +69,7 @@ spec:
               mountPath: /etc/tls/cert-issuer-mqtt
       containers:
       - name: online-receiver
-        image: {{ .Values.online-receiver.image }}
+        image: {{ .Values.onlineReceiver.image }}
         {{- if .Values.debug.pods.alwaysPullContainers }}
         imagePullPolicy: Always
         {{- end }}

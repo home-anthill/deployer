@@ -77,10 +77,10 @@ consumer:
 online:
   image: "ks89/online:v1.0.0"
 
-online-receiver:
+onlineReceiver:
   image: "ks89/online-receiver:v1.0.0"
 
-online-alarm:
+onlineAlarm:
   image: "ks89/online-alarm:v1.0.0"
 
 # debug configuration, not for production environment
