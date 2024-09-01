@@ -66,28 +66,46 @@ rabbitmq:
   password: "rabbitpassword" # dafauult value, please replace this with your custom valves file
 
 register:
-  image: "ks89/register:v1.1.1"
+  image: "ks89/register:develop"
+  # secret key used by the Rocket Framework
+  rocketSecretKey:
+    # don't use these in production, please generate your secrets with
+    # `openssl rand -base64 32`
+    debug: "VQUpMTsnFNA1hniY1fcNN9O2yyuJ43paS6sc4GZX8sM="
+    release: "K9hJyBpkTIa06ouMM4EtFKTMMoZc2W6SiBabgbrlDC4="
 
 producer:
-  image: "ks89/producer:v1.0.2"
+  image: "ks89/producer:develop"
 
 consumer:
-  image: "ks89/consumer:v1.1.0"
+  image: "ks89/consumer:develop"
 
 online:
-  image: "ks89/online:v1.0.0"
+  image: "ks89/online:develop"
+  # secret key used by the Rocket Framework
+  rocketSecretKey:
+    # don't use these in production, please generate your secrets with
+    # `openssl rand -base64 32`
+    debug: "VQUpMTsnFNA1hniY1fcNN9O2yyuJ43paS6sc4GZX8sM="
+    release: "K9hJyBpkTIa06ouMM4EtFKTMMoZc2W6SiBabgbrlDC4="
 
 onlineReceiver:
-  image: "ks89/online-receiver:v1.0.0"
+  image: "ks89/online-receiver:develop"
 
 onlineAlarm:
-  image: "ks89/online-alarm:v1.0.0"
+  image: "ks89/online-alarm:develop"
+  # secret key used by the Rocket Framework
+  rocketSecretKey:
+    # don't use these in production, please generate your secrets with
+    # `openssl rand -base64 32`
+    debug: "VQUpMTsnFNA1hniY1fcNN9O2yyuJ43paS6sc4GZX8sM="
+    release: "K9hJyBpkTIa06ouMM4EtFKTMMoZc2W6SiBabgbrlDC4="
 
 # debug configuration, not for production environment
 debug:
   pods:
-    alwaysPullContainers: false
+    alwaysPullContainers: true
     # if your pods are crashing, you can enable this to prevent restarts
     # and to access them using your terminal.
     # Don't enable this on a production environment!!!
-    sleepInfinity: false
+    sleepInfinity: true
