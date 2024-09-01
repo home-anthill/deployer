@@ -74,6 +74,15 @@ producer:
 consumer:
   image: "ks89/consumer:v1.1.0"
 
+online:
+  image: "ks89/online:v1.0.0"
+
+online-receiver:
+  image: "ks89/online-receiver:v1.0.0"
+
+online-alarm:
+  image: "ks89/online-alarm:v1.0.0"
+
 # debug configuration, not for production environment
 debug:
   pods:

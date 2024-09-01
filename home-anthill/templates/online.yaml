@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: online-config
+  namespace: {{ .Values.namespace }}
+data:
+  .env: |-
+    MONGO_URI={{ .Values.mongodbUrl }}
+    MONGO_DB_NAME=online
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: online
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: online
+  template:
+    metadata:
+      labels:
+        app: online
+    spec:
+      containers:
+      - name: online
+        image: {{ .Values.online.image }}
+        {{- if .Values.debug.pods.alwaysPullContainers }}
+        imagePullPolicy: Always
+        {{- end }}
+        {{- if .Values.debug.pods.sleepInfinity }}
+        command: ["/bin/sh"]
+        args: ["-c", "chmod +x /app/online; /app/online; sleep Infinity;"]
+        {{- end }}
+        readinessProbe:
+          httpGet:
+            path: /keepalive
+            port: http
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /keepalive
+            port: http
+          periodSeconds: 60
+          failureThreshold: 2
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        volumeMounts:
+        - name: online-config
+          mountPath: /app/.env
+          subPath: .env
+          readOnly: true
+      volumes:
+      - name: online-config
+        configMap:
+          name: online-config
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: online-svc
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: online
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http

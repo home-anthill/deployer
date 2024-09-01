@@ -1,0 +1,147 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: online-receiver-config
+  namespace: {{ .Values.namespace }}
+data:
+  .env: |-
+    MONGO_URI={{ .Values.mongodbUrl }}
+    MONGO_DB_NAME=online
+    {{- if .Values.domains.mqtt.ssl.enable }}
+    MQTT_URL={{ .Values.domains.mqtt.name }}
+    MQTT_PORT=8883
+    MQTT_TLS=true
+    {{- if eq "prod" .Values.letsencrypt.server.env  }}
+    ROOT_CA=/etc/ssl/certs/ISRG_Root_X1.pem
+    {{ else }}
+    ROOT_CA=/tls-cert/tls.crt
+    {{ end -}}
+    MQTT_CERT_FILE=/tls-cert/tls.crt
+    MQTT_KEY_FILE=/tls-cert/tls.key
+    {{ else }}
+    MQTT_URL=mosquitto-svc.{{ .Values.namespace }}.svc.cluster.local
+    MQTT_PORT=1883
+    MQTT_TLS=false
+    ROOT_CA=
+    MQTT_CERT_FILE=
+    MQTT_KEY_FILE=
+    {{ end -}}
+    MQTT_CLIENT_ID=online-receiver
+    {{- if .Values.mosquitto.auth.enable }}
+    MQTT_AUTH=true
+    MQTT_USER={{ .Values.mosquitto.auth.username }}
+    MQTT_PASSWORD={{ .Values.mosquitto.auth.password }}
+    {{ else }}
+    MQTT_AUTH=false
+    MQTT_USER=
+    MQTT_PASSWORD=
+    {{ end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: online-receiver
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: online-receiver
+  template:
+    metadata:
+      labels:
+        app: online-receiver
+    spec:
+      initContainers:
+        - name: init-certs
+          image: alpine
+          command: 
+            - "/bin/sh"
+            - "-c"
+            - |
+              cp /etc/tls/cert-issuer-mqtt/tls.crt /tls-cert/tls.crt
+              cp /etc/tls/cert-issuer-mqtt/tls.key /tls-cert/tls.key
+          volumeMounts:
+            - name: tls
+              mountPath: /tls-cert
+            - name: certmqtt
+              mountPath: /etc/tls/cert-issuer-mqtt
+      containers:
+      - name: online-receiver
+        image: {{ .Values.online-receiver.image }}
+        {{- if .Values.debug.pods.alwaysPullContainers }}
+        imagePullPolicy: Always
+        {{- end }}
+        {{- if .Values.debug.pods.sleepInfinity }}
+        command: ["/bin/sh"]
+        args: ["-c", "chmod +x /app/online; /app/online; sleep Infinity;"]
+        {{- end }}
+        # readinessProbe:
+        #   exec:
+        #     command:
+        #     - curl
+        #     - -f
+        #     - --user
+        #     - "{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}"
+        #     - rabbitmq.{{ .Values.namespace }}.svc.cluster.local:15672/api/health/checks/virtual-hosts
+        #   periodSeconds: 30
+        # livenessProbe:
+        #   exec:
+        #     command:
+        #     - curl
+        #     - -f
+        #     - --user
+        #     - "{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}"
+        #     - rabbitmq.{{ .Values.namespace }}.svc.cluster.local:15672/api/health/checks/virtual-hosts
+        #   periodSeconds: 60
+        #   failureThreshold: 2
+        ports:
+        {{- if .Values.domains.mqtt.ssl.enable }}
+        - name: mqtts
+          containerPort: 8883
+          protocol: TCP
+        {{- else }}
+        - name: mqtt
+          containerPort: 1883
+          protocol: TCP
+        {{- end }}
+        volumeMounts:
+        - name: online-receiver-config
+          mountPath: /app/.env
+          subPath: .env
+          readOnly: true
+        - name: tls
+          mountPath: /tls-cert
+      volumes:
+      - name: online-receiver-config
+        configMap:
+          name: online-receiver-config
+      - name: certmqtt
+        secret:
+          secretName: mqtt-tls
+      - name: tls
+        emptyDir: {}
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: online-receiver-svc
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: online-receiver
+  ports:
+    {{- if .Values.domains.mqtt.ssl.enable }}
+    # expose mqtts port
+    - name: mqtts
+      protocol: TCP
+      port: 8883
+      targetPort: mqtts
+    {{- else }}
+    # expose mqtt port
+    - name: mqtt
+      protocol: TCP
+      port: 1883
+      targetPort: mqtt
+    {{- end }}

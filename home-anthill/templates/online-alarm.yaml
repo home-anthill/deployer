@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: online-alarm-config
+  namespace: {{ .Values.namespace }}
+data:
+  .env: |-
+    MONGO_URI={{ .Values.mongodbUrl }}
+    MONGO_DB_NAME=online
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: online-alarm
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: online-alarm
+  template:
+    metadata:
+      labels:
+        app: online-alarm
+    spec:
+      containers:
+      - name: online-alarm
+        image: {{ .Values.online-alarm.image }}
+        {{- if .Values.debug.pods.alwaysPullContainers }}
+        imagePullPolicy: Always
+        {{- end }}
+        {{- if .Values.debug.pods.sleepInfinity }}
+        command: ["/bin/sh"]
+        args: ["-c", "chmod +x /app/online; /app/online; sleep Infinity;"]
+        {{- end }}
+        readinessProbe:
+          httpGet:
+            path: /keepalive
+            port: http
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /keepalive
+            port: http
+          periodSeconds: 60
+          failureThreshold: 2
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        volumeMounts:
+        - name: online-alarm-config
+          mountPath: /app/.env
+          subPath: .env
+          readOnly: true
+      volumes:
+      - name: online-alarm-config
+        configMap:
+          name: online-alarm-config
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: online-alarm-svc
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: online-alarm
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http
