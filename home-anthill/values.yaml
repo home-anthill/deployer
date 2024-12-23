@@ -53,15 +53,15 @@ mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net"
 
 # web app
 gui:
-  image: "ks89/gui:v2.0.0"
+  image: "ks89/gui:develop"
 
 apiDevices:
-  image: "ks89/api-devices:v1.1.2"
+  image: "ks89/api-devices:develop"
   grpc: 
     libraryLogEnable: false
 
 apiServer:
-  image: "ks89/api-server:v1.3.2"
+  image: "ks89/api-server:develop"
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
   cookieSecret: "@DbTN*jA"
