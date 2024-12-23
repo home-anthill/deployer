@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: {{ .Values.namespace }}
+data:
+  redis.conf: |-
+    dbfilename snapshot.rdb
+    # save snapshot if 1 keys has ve been modified in 120 seconds
+    save 120 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      # initContainers:
+      #   - name: init
+      #     image: alpine
+      #     command: 
+      #       - "/bin/sh"
+      #       - "-c"
+      #       - |
+      #         echo "copying certificates from certmanager"
+      containers:
+      - name: redis
+        image: {{ .Values.redis.image }}
+        imagePullPolicy: Always
+        # start redis with a custom redis.conf file
+        command: ["/bin/sh"]
+        args: ["-c", "redis-server /usr/local/etc/redis/redis.conf"]
+        ports:
+        - name: "redis-port"
+          containerPort: 6379
+          protocol: TCP
+        volumeMounts:
+          - name: data
+            mountPath: "/data"
+          - name: redis-config
+            mountPath: /usr/local/etc/redis/redis.conf
+            subPath: redis.conf
+            readOnly: true
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: redis-data-claim
+        - name: redis-config
+          configMap:
+            name: redis-config
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: redis-svc
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: redis
+  ports:
+    - name: redis-port
+      protocol: TCP
+      port: 6379
+      targetPort: redis-port

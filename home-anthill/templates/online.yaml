@@ -5,11 +5,11 @@ metadata:
   name: online-config
   namespace: {{ .Values.namespace }}
 data:
-  .env: |-
-    MONGO_URI={{ .Values.mongodbUrl }}
-    MONGO_DB_NAME=online
   Rocket.toml: |-
     [default]
+
+    [default.databases.redis_pool]
+    url = "redis://redis-svc.{{ .Values.namespace }}.svc.cluster.local:6379"
 
     [debug]
     secret_key="{{ .Values.online.rocketSecretKey.debug }}"
@@ -60,10 +60,6 @@ spec:
           containerPort: 80
           protocol: TCP
         volumeMounts:
-        - name: online-config
-          mountPath: /app/.env
-          subPath: .env
-          readOnly: true
         - name: online-config
           mountPath: /app/Rocket.toml
           subPath: Rocket.toml

@@ -6,8 +6,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   .env: |-
-    MONGO_URI={{ .Values.mongodbUrl }}
-    MONGO_DB_NAME=online
+    REDIS_URI=redis://redis-svc.{{ .Values.namespace }}.svc.cluster.local:6379
   Rocket.toml: |-
     [default]
 
@@ -72,17 +71,3 @@ spec:
       - name: online-alarm-config
         configMap:
           name: online-alarm-config
----
-kind: Service
-apiVersion: v1
-metadata:
-  name: online-alarm-svc
-  namespace: {{ .Values.namespace }}
-spec:
-  selector:
-    app: online-alarm
-  ports:
-    - name: http
-      protocol: TCP
-      port: 80
-      targetPort: http

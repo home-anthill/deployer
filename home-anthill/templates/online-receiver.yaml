@@ -6,8 +6,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   .env: |-
-    MONGO_URI={{ .Values.mongodbUrl }}
-    MONGO_DB_NAME=online
+    REDIS_URI=redis://redis-svc.{{ .Values.namespace }}.svc.cluster.local:6379
     {{- if .Values.domains.mqtt.ssl.enable }}
     MQTT_URL={{ .Values.domains.mqtt.name }}
     MQTT_PORT=8883
@@ -96,16 +95,6 @@ spec:
         #     - rabbitmq.{{ .Values.namespace }}.svc.cluster.local:15672/api/health/checks/virtual-hosts
         #   periodSeconds: 60
         #   failureThreshold: 2
-        ports:
-        {{- if .Values.domains.mqtt.ssl.enable }}
-        - name: mqtts
-          containerPort: 8883
-          protocol: TCP
-        {{- else }}
-        - name: mqtt
-          containerPort: 1883
-          protocol: TCP
-        {{- end }}
         volumeMounts:
         - name: online-receiver-config
           mountPath: /app/.env
@@ -122,26 +111,3 @@ spec:
           secretName: mqtt-tls
       - name: tls
         emptyDir: {}
----
-kind: Service
-apiVersion: v1
-metadata:
-  name: online-receiver-svc
-  namespace: {{ .Values.namespace }}
-spec:
-  selector:
-    app: online-receiver
-  ports:
-    {{- if .Values.domains.mqtt.ssl.enable }}
-    # expose mqtts port
-    - name: mqtts
-      protocol: TCP
-      port: 8883
-      targetPort: mqtts
-    {{- else }}
-    # expose mqtt port
-    - name: mqtt
-      protocol: TCP
-      port: 1883
-      targetPort: mqtt
-    {{- end }}
