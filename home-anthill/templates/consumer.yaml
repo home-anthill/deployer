@@ -73,7 +73,7 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: consumer-svc
+  name: {{ .Values.consumer.serviceName }}
   namespace: {{ .Values.namespace }}
 spec:
   selector:

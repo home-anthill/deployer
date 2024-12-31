@@ -9,7 +9,7 @@ data:
     [default]
 
     [default.databases.redis_pool]
-    url = "redis://redis-svc.{{ .Values.namespace }}.svc.cluster.local:6379"
+    url = "redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379"
 
     [debug]
     secret_key="{{ .Values.online.rocketSecretKey.debug }}"
@@ -72,7 +72,7 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: online-svc
+  name: {{ .Values.online.serviceName }}
   namespace: {{ .Values.namespace }}
 spec:
   selector:

@@ -32,7 +32,7 @@ data:
         }
 
         location /api {
-          proxy_pass http://api-server-svc.{{ .Values.namespace }}.svc.cluster.local:80;
+          proxy_pass http://{{ .Values.apiServer.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:80;
           proxy_set_header X-Forwarded-For $remote_addr;
           proxy_set_header Host            $http_host;
         }
@@ -87,7 +87,7 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: gui-svc
+  name: {{ .Values.gui.serviceName }}
   namespace: {{ .Values.namespace }}
 spec:
   selector:

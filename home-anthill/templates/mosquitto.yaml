@@ -158,7 +158,7 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: mosquitto-svc
+  name: {{ .Values.mosquitto.serviceName }}
   namespace: {{ .Values.namespace }}
 spec:
   selector:

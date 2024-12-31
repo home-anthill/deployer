@@ -25,7 +25,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: mosquitto-svc
+            name: {{ .Values.mosquitto.serviceName }}
             port:
               {{- if .Values.domains.mqtt.ssl.enable }}
               number: 8883

@@ -62,7 +62,7 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: redis-svc
+  name: {{ .Values.redis.serviceName }}
   namespace: {{ .Values.namespace }}
 spec:
   selector:

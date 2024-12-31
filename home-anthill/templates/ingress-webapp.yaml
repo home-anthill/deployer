@@ -38,7 +38,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: gui-svc
+            name: {{ .Values.gui.serviceName }}
             port:
               number: 80
   - host: "www.{{ .Values.domains.http.name }}"
@@ -48,7 +48,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: gui-svc
+            name: {{ .Values.gui.serviceName }}
             port:
               number: 80
 {{- if .Values.domains.http.ssl.enable }}

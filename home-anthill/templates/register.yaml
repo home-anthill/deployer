@@ -79,7 +79,7 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: register-svc
+  name: {{ .Values.register.serviceName }}
   namespace: {{ .Values.namespace }}
 spec:
   selector:

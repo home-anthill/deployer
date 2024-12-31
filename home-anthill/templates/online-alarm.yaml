@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   .env: |-
-    REDIS_URI=redis://redis-svc.{{ .Values.namespace }}.svc.cluster.local:6379
+    REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379
   Rocket.toml: |-
     [default]
 
@@ -17,6 +17,7 @@ data:
     address = "0.0.0.0"
     port = 80
     secret_key="{{ .Values.onlineAlarm.rocketSecretKey.release }}"
+  serviceAccountKey.json: {{ .Values.onlineAlarm.firebaseServiceAccount | toJson | quote }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -66,6 +67,10 @@ spec:
         - name: online-alarm-config
           mountPath: /app/Rocket.toml
           subPath: Rocket.toml
+          readOnly: true
+        - name: online-alarm-config
+          mountPath: /app/serviceAccountKey.json
+          subPath: serviceAccountKey.json
           readOnly: true
       volumes:
       - name: online-alarm-config

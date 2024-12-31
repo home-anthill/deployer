@@ -31,6 +31,7 @@ letsencrypt:
 # public MQTT server
 mosquitto:
   image: "ks89/mosquitto:v2.0.0"
+  serviceName: "mosquitto-svc"
   dataFolder: "/root/mosquitto-persistence-data"
   auth:
     enable: true
@@ -40,11 +41,13 @@ mosquitto:
 # internal redis server
 redis:
   image: "redis:7"
+  serviceName: "redis-svc"
   dataFolder: "/root/redis-data"
 
 # internal rabbitmq server
 rabbitmq:
   image: "rabbitmq:3-management"
+  # serviceName is by default 'rabbitmq'
   user: "rabbituser"
   password: "rabbitpassword" # dafault value, please replace this with your custom valves file
 
@@ -54,14 +57,17 @@ mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net"
 # web app
 gui:
   image: "ks89/gui:develop"
+  serviceName: "gui-svc"
 
 apiDevices:
   image: "ks89/api-devices:develop"
+  serviceName: api-devices-svc
   grpc: 
     libraryLogEnable: false
 
 apiServer:
   image: "ks89/api-server:develop"
+  serviceName: api-server-svc
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
   cookieSecret: "@DbTN*jA"
@@ -74,6 +80,7 @@ apiServer:
 
 register:
   image: "ks89/register:develop"
+  serviceName: "register-svc"
   # secret key used by the Rocket Framework
   rocketSecretKey:
     # don't use these in production, please generate your secrets with
@@ -83,12 +90,15 @@ register:
 
 producer:
   image: "ks89/producer:develop"
+  serviceName: producer-svc
 
 consumer:
   image: "ks89/consumer:develop"
+  serviceName: consumer-svc
 
 online:
   image: "ks89/online:develop"
+  serviceName: online-svc
   # secret key used by the Rocket Framework
   rocketSecretKey:
     # don't use these in production, please generate your secrets with
@@ -107,6 +117,20 @@ onlineAlarm:
     # `openssl rand -base64 32`
     debug: "VQUpMTsnFNA1hniY1fcNN9O2yyuJ43paS6sc4GZX8sM="
     release: "K9hJyBpkTIa06ouMM4EtFKTMMoZc2W6SiBabgbrlDC4="
+  firebaseServiceAccount:
+    {
+      "type": "service_account",
+      "project_id": "<PROJECT_ID>",
+      "private_key_id": "<FAKE_PRIVATE_ID>",
+      "private_key": "-----BEGIN PRIVATE KEY-----\nYOUR_KEY_HERE==\n-----END PRIVATE KEY-----\n",
+      "client_email": "firebase-adminsdk-204wn@<PROJECT_ID>.iam.gserviceaccount.com",
+      "client_id": "<CLIENT_ID>",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "token_uri": "https://oauth2.googleapis.com/token",
+      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+      "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-204wn%40<PROJECT_ID>.iam.gserviceaccount.com",
+      "universe_domain": "googleapis.com"
+    }
 
 # debug configuration, not for production environment
 debug:

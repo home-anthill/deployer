@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   .env: |-
-    REDIS_URI=redis://redis-svc.{{ .Values.namespace }}.svc.cluster.local:6379
+    REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379
     {{- if .Values.domains.mqtt.ssl.enable }}
     MQTT_URL={{ .Values.domains.mqtt.name }}
     MQTT_PORT=8883
@@ -19,7 +19,7 @@ data:
     MQTT_CERT_FILE=/tls-cert/tls.crt
     MQTT_KEY_FILE=/tls-cert/tls.key
     {{ else }}
-    MQTT_URL=mosquitto-svc.{{ .Values.namespace }}.svc.cluster.local
+    MQTT_URL={{ .Values.mosquitto.serviceName }}.{{ .Values.namespace }}.svc.cluster.local
     MQTT_PORT=1883
     MQTT_TLS=false
     ROOT_CA=

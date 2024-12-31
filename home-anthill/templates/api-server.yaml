@@ -11,12 +11,12 @@ data:
     HTTP_PORT=80
     OAUTH_CALLBACK=http://{{ .Values.domains.http.name }}/api/callback
     HTTP_CORS=false
-    HTTP_SENSOR_SERVER=http://register-svc.{{ .Values.namespace }}.svc.cluster.local
+    HTTP_SENSOR_SERVER=http://{{ .Values.register.serviceName }}.{{ .Values.namespace }}.svc.cluster.local
     HTTP_SENSOR_PORT=80
     HTTP_SENSOR_GETVALUE_API=/sensors/
     HTTP_SENSOR_REGISTER_API=/sensors/register/
     HTTP_SENSOR_KEEPALIVE_API=/keepalive/
-    GRPC_URL=api-devices-svc.{{ .Values.namespace }}.svc.cluster.local:50051
+    GRPC_URL={{ .Values.apiDevices.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:50051
     GRPC_TLS=false
     CERT_FOLDER_PATH=
     {{- if .Values.apiServer.singleUserLoginEmail }}
@@ -28,7 +28,7 @@ data:
     COOKIE_SECRET={{ .Values.apiServer.cookieSecret }}
     OAUTH2_CLIENTID={{ .Values.apiServer.oauth2ClientID }}
     OAUTH2_SECRETID={{ .Values.apiServer.oauth2SecretID }}
-    INTERNAL_CLUSTER_PATH=api-server-svc.{{ .Values.namespace }}.svc.cluster.local
+    INTERNAL_CLUSTER_PATH={{ .Values.apiServer.serviceName }}.{{ .Values.namespace }}.svc.cluster.local
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -90,7 +90,7 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: api-server-svc
+  name: {{ .Values.apiServer.serviceName }}
   namespace: {{ .Values.namespace }}
 spec:
   selector:
