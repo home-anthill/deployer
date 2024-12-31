@@ -16,6 +16,11 @@ data:
     HTTP_SENSOR_GETVALUE_API=/sensors/
     HTTP_SENSOR_REGISTER_API=/sensors/register/
     HTTP_SENSOR_KEEPALIVE_API=/keepalive/
+    HTTP_ONLINE_SERVER=http://{{ .Values.online.serviceName }}.{{ .Values.namespace }}.svc.cluster.local
+    HTTP_ONLINE_PORT=80
+    HTTP_ONLINE_API=/online/
+    HTTP_ONLINE_FCMTOKEN_API=/fcmtoken/
+    HTTP_ONLINE_KEEPALIVE_API=/keepalive/
     GRPC_URL={{ .Values.apiDevices.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:50051
     GRPC_TLS=false
     CERT_FOLDER_PATH=
