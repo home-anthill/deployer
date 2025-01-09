@@ -13,6 +13,7 @@ data:
 
     [debug]
     secret_key="{{ .Values.online.rocketSecretKey.debug }}"
+    port = 8089
 
     [release]
     address = "0.0.0.0"

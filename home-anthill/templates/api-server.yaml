@@ -9,8 +9,13 @@ data:
     MONGODB_URL={{ .Values.mongodbUrl }}
     HTTP_SERVER=http://{{ .Values.domains.http.name }}
     HTTP_PORT=80
-    OAUTH_CALLBACK=http://{{ .Values.domains.http.name }}/api/callback
     HTTP_CORS=false
+    OAUTH2_CALLBACK=http://{{ .Values.domains.http.name }}/api/callback
+    OAUTH2_CLIENTID={{ .Values.apiServer.oauth2ClientID }}
+    OAUTH2_SECRETID={{ .Values.apiServer.oauth2SecretID }}
+    OAUTH2_APP_CALLBACK=http://{{ .Values.domains.http.name }}/api/app_callback
+    OAUTH2_APP_CLIENTID={{ .Values.apiServer.oauth2AppClientID }}
+    OAUTH2_APP_SECRETID={{ .Values.apiServer.oauth2AppSecretID }}
     HTTP_SENSOR_SERVER=http://{{ .Values.register.serviceName }}.{{ .Values.namespace }}.svc.cluster.local
     HTTP_SENSOR_PORT=80
     HTTP_SENSOR_GETVALUE_API=/sensors/
@@ -31,8 +36,6 @@ data:
     {{ end }}
     JWT_PASSWORD={{ .Values.apiServer.jwtPassword }}
     COOKIE_SECRET={{ .Values.apiServer.cookieSecret }}
-    OAUTH2_CLIENTID={{ .Values.apiServer.oauth2ClientID }}
-    OAUTH2_SECRETID={{ .Values.apiServer.oauth2SecretID }}
     INTERNAL_CLUSTER_PATH={{ .Values.apiServer.serviceName }}.{{ .Values.namespace }}.svc.cluster.local
 ---
 apiVersion: apps/v1
