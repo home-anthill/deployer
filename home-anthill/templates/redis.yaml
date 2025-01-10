@@ -25,18 +25,24 @@ spec:
       labels:
         app: redis
     spec:
-      # initContainers:
-      #   - name: init
-      #     image: alpine
-      #     command: 
-      #       - "/bin/sh"
-      #       - "-c"
-      #       - |
-      #         echo "copying certificates from certmanager"
       containers:
       - name: redis
         image: {{ .Values.redis.image }}
         imagePullPolicy: Always
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - redis-cli ping
+          periodSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - redis-cli ping
+          periodSeconds: 60
         # start redis with a custom redis.conf file
         command: ["/bin/sh"]
         args: ["-c", "redis-server /usr/local/etc/redis/redis.conf"]

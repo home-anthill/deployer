@@ -37,25 +37,6 @@ spec:
         command: ["/bin/sh"]
         args: ["-c", "chmod +x /app/consumer; /app/consumer; sleep Infinity;"]
         {{- end }}
-        # readinessProbe:
-        #   exec:
-        #     command:
-        #     - curl
-        #     - -f
-        #     - --user
-        #     - "{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}"
-        #     - rabbitmq.{{ .Values.namespace }}.svc.cluster.local:15672/api/health/checks/virtual-hosts
-        #   periodSeconds: 30
-        # livenessProbe:
-        #   exec:
-        #     command:
-        #     - curl
-        #     - -f
-        #     - --user
-        #     - "{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}"
-        #     - rabbitmq.{{ .Values.namespace }}.svc.cluster.local:15672/api/health/checks/virtual-hosts
-        #   periodSeconds: 60
-        #   failureThreshold: 2
         ports:
         - name: http
           containerPort: 80
