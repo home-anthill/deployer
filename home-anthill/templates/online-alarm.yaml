@@ -7,6 +7,7 @@ metadata:
 data:
   .env: |-
     REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379
+    CACHE_TIMEOUT_SECONDS=240
   Rocket.toml: |-
     [default]
 
