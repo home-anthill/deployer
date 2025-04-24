@@ -19,6 +19,35 @@ data:
     address = "0.0.0.0"
     port = 80
     secret_key="{{ .Values.online.rocketSecretKey.release }}"
+  log4rs.yaml: |-
+    appenders:
+      stdout:
+        kind: console
+      app:
+        kind: rolling_file
+        path: logs/app.log
+        encoder:
+          pattern: "{d(%Y-%m-%d %H:%M:%S)} | {({l}):5.5} | {f}:{L} — {m}{n}"
+        policy:
+          trigger:
+            kind: size
+            limit: 30 mb
+          roller:
+            kind: fixed_window
+            pattern: logs/app_{}.log
+            count: 5
+            base: 1
+
+    root:
+      level: info
+      appenders:
+        - stdout
+
+    loggers:
+      app:
+        level: info
+        appenders:
+          - app
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -64,6 +93,10 @@ spec:
         - name: online-config
           mountPath: /app/Rocket.toml
           subPath: Rocket.toml
+          readOnly: true
+        - name: online-config
+          mountPath: /app/log4rs.yaml
+          subPath: log4rs.yaml
           readOnly: true
       volumes:
       - name: online-config
