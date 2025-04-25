@@ -23,7 +23,7 @@ data:
     appenders:
       stdout:
         kind: console
-      app:
+      file:
         kind: rolling_file
         path: logs/app.log
         encoder:
@@ -44,7 +44,7 @@ data:
         - stdout
 
     loggers:
-      app:
+      file:
         level: info
         appenders:
           - app
