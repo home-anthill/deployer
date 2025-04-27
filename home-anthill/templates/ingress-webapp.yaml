@@ -6,7 +6,6 @@ metadata:
   {{- if .Values.domains.http.ssl.enable }}
   annotations:
     cert-manager.io/issuer: "cert-issuer-webapp"
-    nginx.ingress.kubernetes.io/rewrite-target: "/"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/redirect-to-https: "true"
@@ -41,6 +40,13 @@ spec:
             name: {{ .Values.gui.serviceName }}
             port:
               number: 80
+      - path: /admission
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.admission.nginxServiceName }}
+            port:
+              number: 80
   - host: "www.{{ .Values.domains.http.name }}"
     http:
       paths:
@@ -49,6 +55,13 @@ spec:
         backend:
           service:
             name: {{ .Values.gui.serviceName }}
+            port:
+              number: 80
+      - path: /admission
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ .Values.admission.nginxServiceName }}
             port:
               number: 80
 {{- if .Values.domains.http.ssl.enable }}
