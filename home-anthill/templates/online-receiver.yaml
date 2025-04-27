@@ -36,35 +36,6 @@ data:
     MQTT_USER=
     MQTT_PASSWORD=
     {{ end }}
-  # log4rs.yaml: |-
-  #   appenders:
-  #     stdout:
-  #       kind: console
-  #     file:
-  #       kind: rolling_file
-  #       path: logs/app.log
-  #       encoder:
-  #         pattern: "{d(%Y-%m-%d %H:%M:%S)} | {({l}):5.5} | {f}:{L} — {m}{n}"
-  #       policy:
-  #         trigger:
-  #           kind: size
-  #           limit: 30 mb
-  #         roller:
-  #           kind: fixed_window
-  #           pattern: logs/app_{}.log
-  #           count: 5
-  #           base: 1
-
-  #   root:
-  #     level: info
-  #     appenders:
-  #       - stdout
-
-  #   loggers:
-  #     file:
-  #       level: info
-  #       appenders:
-  #         - app
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -110,10 +81,6 @@ spec:
           mountPath: /app/.env
           subPath: .env
           readOnly: true
-        # - name: online-receiver-config
-        #   mountPath: /app/log4rs.yaml
-        #   subPath: log4rs.yaml
-        #   readOnly: true
         - name: tls
           mountPath: /tls-cert
       volumes:
