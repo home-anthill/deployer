@@ -86,10 +86,6 @@ spec:
           mountPath: /.env
           subPath: .env
           readOnly: true
-        - name: api-server-config
-          mountPath: /credentials.json
-          subPath: credentials.json
-          readOnly: true
       volumes:
       - name: api-server-config
         configMap:
