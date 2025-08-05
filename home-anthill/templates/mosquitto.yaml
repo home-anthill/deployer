@@ -18,9 +18,9 @@ data:
     # taken from https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-the-mosquitto-mqtt-messaging-broker-on-ubuntu-18-04
     # I need to copy let's encrypt files to another destination to be able
     # to set right owner and permissions
-    certfile /etc/mosquitto/certs/tls.crt
-    cafile /etc/ssl/certs/ca-certificates.crt
-    keyfile /etc/mosquitto/certs/tls.key
+    certfile /etc/mosquitto/certs/cert.pem
+    cafile /etc/mosquitto/certs/chain.pem
+    keyfile /etc/mosquitto/certs/privkey.pem
     {{- else }}
     # insecure connections via 1883 disabled
     listener 1883
@@ -45,9 +45,27 @@ spec:
       labels:
         app: mosquitto
     spec:
-      securityContext:
-        # The owner for volumes and any files created in that volume will be Group ID 1883 (mosquitto)
-        fsGroup: 1883
+      initContainers:
+        - name: init-certs
+          image: alpine
+          command: 
+            - "/bin/sh"
+            - "-c"
+            - |
+              echo "copying certificates from certmanager"
+              cp "/etc/tls/cert-issuer-mqtt/tls.crt" /etc/mosquitto/certs/cert.pem
+              cp "/etc/tls/cert-issuer-mqtt/tls.key" /etc/mosquitto/certs/privkey.pem
+
+              {{- if eq "prod" .Values.letsencrypt.server.env  }}
+              cp "/etc/ssl/certs/ca-certificates.crt" /etc/mosquitto/certs/chain.pem
+              {{- else }}
+              cp "/etc/tls/cert-issuer-mqtt/tls.crt" /etc/mosquitto/certs/chain.pem
+              {{- end }}
+          volumeMounts:
+            - name: mosquitto-certs
+              mountPath: /etc/mosquitto/certs/
+            - name: certmqtt
+              mountPath: /etc/tls/cert-issuer-mqtt
       containers:
       - name: mosquitto
         image: {{ .Values.mosquitto.image }}
@@ -110,8 +128,20 @@ spec:
             mountPath: /mosquitto/config/mosquitto.conf
             subPath: mosquitto.conf
             readOnly: true
-          - name: certmqtt
+          - name: mosquitto-certs
             mountPath: /etc/mosquitto/certs/
+        lifecycle:
+          postStart:
+            exec:
+              command: 
+                - "/bin/sh"
+                - "-c"
+                - |
+                  echo "setting certificates ownership to Mosquitto"
+                  chown mosquitto: /etc/mosquitto/certs/cert.pem /etc/mosquitto/certs/chain.pem /etc/mosquitto/certs/privkey.pem
+
+                  echo "ensuring permissions as restrictive"
+                  chmod 0600 /etc/mosquitto/certs/cert.pem /etc/mosquitto/certs/chain.pem /etc/mosquitto/certs/privkey.pem
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -122,7 +152,8 @@ spec:
         - name: certmqtt
           secret:
             secretName: mqtt-tls
-            defaultMode: 0600
+        - name: mosquitto-certs
+          emptyDir: {}
 ---
 kind: Service
 apiVersion: v1
