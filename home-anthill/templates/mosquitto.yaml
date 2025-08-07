@@ -19,7 +19,11 @@ data:
     # I need to copy let's encrypt files to another destination to be able
     # to set right owner and permissions
     certfile /etc/mosquitto/certs/cert.pem
-    cafile /etc/mosquitto/certs/chain.pem
+    {{- if eq "prod" .Values.letsencrypt.server.env  }}
+    cafile /etc/ssl/certs/ca-certificates.crt
+    {{- else }}
+    cafile /etc/tls/cert-issuer-mqtt/tls.crt
+    {{- end }}
     keyfile /etc/mosquitto/certs/privkey.pem
     {{- else }}
     # insecure connections via 1883 disabled
@@ -55,12 +59,6 @@ spec:
               echo "copying certificates from certmanager"
               cp "/etc/tls/cert-issuer-mqtt/tls.crt" /etc/mosquitto/certs/cert.pem
               cp "/etc/tls/cert-issuer-mqtt/tls.key" /etc/mosquitto/certs/privkey.pem
-
-              {{- if eq "prod" .Values.letsencrypt.server.env  }}
-              cp "/etc/ssl/certs/ca-certificates.crt" /etc/mosquitto/certs/chain.pem
-              {{- else }}
-              cp "/etc/tls/cert-issuer-mqtt/tls.crt" /etc/mosquitto/certs/chain.pem
-              {{- end }}
           volumeMounts:
             - name: mosquitto-certs
               mountPath: /etc/mosquitto/certs/
@@ -138,10 +136,10 @@ spec:
                 - "-c"
                 - |
                   echo "setting certificates ownership to Mosquitto"
-                  chown mosquitto: /etc/mosquitto/certs/cert.pem /etc/mosquitto/certs/chain.pem /etc/mosquitto/certs/privkey.pem
+                  chown mosquitto: /etc/mosquitto/certs/cert.pem /etc/mosquitto/certs/privkey.pem
 
                   echo "ensuring permissions as restrictive"
-                  chmod 0600 /etc/mosquitto/certs/cert.pem /etc/mosquitto/certs/chain.pem /etc/mosquitto/certs/privkey.pem
+                  chmod 0600 /etc/mosquitto/certs/cert.pem /etc/mosquitto/certs/privkey.pem
       volumes:
         - name: data
           persistentVolumeClaim:
