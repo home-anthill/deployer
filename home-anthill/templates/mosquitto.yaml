@@ -114,8 +114,36 @@ spec:
             mountPath: /mosquitto/config/mosquitto.conf
             subPath: mosquitto.conf
             readOnly: true
+          {{- if .Values.domains.mqtt.ssl.enable }}
           - name: certmqtt
             mountPath: /etc/mosquitto/certs/
+          {{- end }}
+      {{- if .Values.domains.mqtt.ssl.enable }}
+      - name: config-reloader
+        image: ajacques/config-reloader-sidecar:latest
+        env:
+          - name: CONFIG_DIR
+            value: >-
+              /config/mosquitto.conf,/etc/mosquitto/certs/tls.key,/etc/mosquitto/certs/tls.crt
+          - name: PROCESS_NAME
+            value: mosquitto
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+              - KILL
+            drop:
+              - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: false
+        volumeMounts:
+          - mountPath: /config/
+            name: mosquitto-config
+            readOnly: true
+          - name: certmqtt
+            mountPath: /etc/mosquitto/certs/
+      {{- end }}
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -123,10 +151,12 @@ spec:
         - name: mosquitto-config
           configMap:
             name: mosquitto-config
+        {{- if .Values.domains.mqtt.ssl.enable }}
         - name: certmqtt
           secret:
             secretName: mqtt-tls
             defaultMode: 0600
+        {{- end }}
 ---
 kind: Service
 apiVersion: v1

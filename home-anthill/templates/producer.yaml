@@ -53,6 +53,7 @@ spec:
       labels:
         app: producer
     spec:
+      {{- if .Values.domains.mqtt.ssl.enable }}
       initContainers:
         - name: init-certs
           image: alpine
@@ -67,6 +68,7 @@ spec:
               mountPath: /tls-cert
             - name: certmqtt
               mountPath: /etc/tls/cert-issuer-mqtt
+      {{- end }}
       containers:
       - name: producer
         image: {{ .Values.producer.image }}
@@ -95,17 +97,21 @@ spec:
             mountPath: /app/.env
             subPath: .env
             readOnly: true
+          {{- if .Values.domains.mqtt.ssl.enable }}
           - name: tls
             mountPath: /tls-cert
+          {{- end }}
       volumes:
         - name: producer-config
           configMap:
             name: producer-config
+        {{- if .Values.domains.mqtt.ssl.enable }}
         - name: certmqtt
           secret:
             secretName: mqtt-tls
         - name: tls
           emptyDir: {}
+        {{- end }}
 ---
 kind: Service
 apiVersion: v1

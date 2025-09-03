@@ -55,6 +55,7 @@ spec:
       labels:
         app: api-devices
     spec:
+      {{- if .Values.domains.mqtt.ssl.enable }}
       initContainers:
         - name: init-certs
           image: alpine
@@ -69,6 +70,7 @@ spec:
               mountPath: /tls-cert
             - name: certmqtt
               mountPath: /etc/tls/cert-issuer-mqtt
+      {{- end }}
       containers:
       - name: api-devices
         image: {{ .Values.apiDevices.image }}
@@ -99,17 +101,21 @@ spec:
             mountPath: /.env
             subPath: .env
             readOnly: true
+          {{- if .Values.domains.mqtt.ssl.enable }}
           - name: tls
             mountPath: /tls-cert
+          {{- end }}
       volumes:
         - name: api-devices-config
           configMap:
             name: api-devices-config
+        {{- if .Values.domains.mqtt.ssl.enable }}
         - name: certmqtt
           secret:
             secretName: mqtt-tls
         - name: tls
           emptyDir: {}
+        {{- end }}
 ---
 kind: Service
 apiVersion: v1

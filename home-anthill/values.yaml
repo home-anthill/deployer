@@ -26,11 +26,11 @@ letsencrypt:
   #   # attention: if you want to use staging server, you should update CA cert in sensors and devices firmwares,
   #   # because firmwares have the let's encrypt rootCA, but for staging you should use the public cert as CA 
   #   env: "staging"
-  #   path: "https://acme-staging-v02.api.letsencrypt.org/directory"
+    # path: "https://acme-staging-v02.api.letsencrypt.org/directory"
 
 # public MQTT server
 mosquitto:
-  image: "ks89/mosquitto:v2.0.0"
+  image: "ks89/mosquitto:v2.0.1"
   serviceName: "mosquitto-svc"
   dataFolder: "/root/mosquitto-persistence-data"
   auth:
@@ -40,13 +40,13 @@ mosquitto:
 
 # internal redis server
 redis:
-  image: "redis:7"
+  image: "redis:8"
   serviceName: "redis-svc"
   dataFolder: "/root/redis-data"
 
 # internal rabbitmq server
 rabbitmq:
-  image: "rabbitmq:3-management"
+  image: "rabbitmq:4-management"
   # serviceName is by default 'rabbitmq'
   user: "rabbituser"
   password: "rabbitpassword" # dafault value, please replace this with your custom valves file
@@ -56,11 +56,11 @@ mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net"
 
 # web app
 gui:
-  image: "ks89/gui:develop"
+  image: "ks89/gui:v2.1.0"
   serviceName: "gui-svc"
 
 admission:
-  image: "ks89/admission:develop"
+  image: "ks89/admission:v1.0.0"
   serviceName: admission-svc
   nginxServiceName: admission-nginx-svc
   grpc: 
@@ -69,13 +69,13 @@ admission:
     enable: true
 
 apiDevices:
-  image: "ks89/api-devices:develop"
+  image: "ks89/api-devices:v1.2.0"
   serviceName: api-devices-svc
   grpc: 
     libraryLogEnable: false
 
 apiServer:
-  image: "ks89/api-server:develop"
+  image: "ks89/api-server:v2.0.0"
   serviceName: api-server-svc
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
@@ -90,7 +90,7 @@ apiServer:
     enable: true
 
 register:
-  image: "ks89/register:develop"
+  image: "ks89/register:v1.2.0"
   serviceName: "register-svc"
   # secret key used by the Rocket Framework
   rocketSecretKey:
@@ -100,15 +100,15 @@ register:
     release: "K9hJyBpkTIa06ouMM4EtFKTMMoZc2W6SiBabgbrlDC4="
 
 producer:
-  image: "ks89/producer:develop"
+  image: "ks89/producer:v1.1.0"
   serviceName: producer-svc
 
 consumer:
-  image: "ks89/consumer:develop"
+  image: "ks89/consumer:v1.2.0"
   serviceName: consumer-svc
 
 online:
-  image: "ks89/online:develop"
+  image: "ks89/online:v1.1.0"
   serviceName: online-svc
   # secret key used by the Rocket Framework
   rocketSecretKey:
@@ -118,10 +118,10 @@ online:
     release: "K9hJyBpkTIa06ouMM4EtFKTMMoZc2W6SiBabgbrlDC4="
 
 onlineReceiver:
-  image: "ks89/online-receiver:develop"
+  image: "ks89/online-receiver:v1.1.0"
 
 onlineAlarm:
-  image: "ks89/online-alarm:develop"
+  image: "ks89/online-alarm:v1.1.0"
   # secret key used by the Rocket Framework
   rocketSecretKey:
     # don't use these in production, please generate your secrets with

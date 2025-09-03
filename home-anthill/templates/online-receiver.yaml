@@ -52,6 +52,7 @@ spec:
       labels:
         app: online-receiver
     spec:
+      {{- if .Values.domains.mqtt.ssl.enable }}
       initContainers:
         - name: init-certs
           image: alpine
@@ -66,6 +67,7 @@ spec:
               mountPath: /tls-cert
             - name: certmqtt
               mountPath: /etc/tls/cert-issuer-mqtt
+      {{- end }}
       containers:
       - name: online-receiver
         image: {{ .Values.onlineReceiver.image }}
@@ -81,8 +83,10 @@ spec:
           mountPath: /app/.env
           subPath: .env
           readOnly: true
+        {{- if .Values.domains.mqtt.ssl.enable }}
         - name: tls
           mountPath: /tls-cert
+        {{- end }}
       volumes:
       - name: online-receiver-config
         configMap:
