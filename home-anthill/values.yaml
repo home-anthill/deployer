@@ -28,6 +28,10 @@ letsencrypt:
   #   env: "staging"
     # path: "https://acme-staging-v02.api.letsencrypt.org/directory"
 
+# k8s-config-reloader
+k8sConfigReloader:
+  image: "ks89/k8s-config-reloader:v1.0.0"
+
 # public MQTT server
 mosquitto:
   image: "ks89/mosquitto:v2.0.1"

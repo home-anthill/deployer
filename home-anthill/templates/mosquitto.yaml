@@ -119,12 +119,12 @@ spec:
             mountPath: /etc/mosquitto/certs/
           {{- end }}
       {{- if .Values.domains.mqtt.ssl.enable }}
-      - name: config-reloader
-        image: ajacques/config-reloader-sidecar:latest
+      - name: k8s-config-reloader
+        image: {{ .Values.k8sConfigReloader.image }}
         env:
           - name: CONFIG_DIR
             value: >-
-              /config/mosquitto.conf,/etc/mosquitto/certs/tls.key,/etc/mosquitto/certs/tls.crt
+              /etc/mosquitto/certs/tls.key,/etc/mosquitto/certs/tls.crt
           - name: PROCESS_NAME
             value: mosquitto
         securityContext:
