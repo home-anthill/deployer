@@ -135,7 +135,7 @@ spec:
     spec:
       containers:
       - name: admission-nginx
-        image: nginx:1.27.5-alpine
+        image: {{ .Values.admission.nginxImage }}
         ports:
           # always enabled to redirect to https
           - name: http

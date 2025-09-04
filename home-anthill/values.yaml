@@ -60,11 +60,12 @@ mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net"
 
 # web app
 gui:
-  image: "ks89/gui:v2.1.0"
+  image: "ks89/gui:v2.1.1"
   serviceName: "gui-svc"
 
 admission:
   image: "ks89/admission:v1.0.0"
+  nginxImage: "nginx:1.29.1-alpine"
   serviceName: admission-svc
   nginxServiceName: admission-nginx-svc
   grpc: 
