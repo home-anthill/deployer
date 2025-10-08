@@ -30,7 +30,7 @@ letsencrypt:
 
 # k8s-config-reloader
 k8sConfigReloader:
-  image: "ks89/k8s-config-reloader:v1.0.0"
+  image: "ks89/k8s-config-reloader:v1.0.1"
 
 # public MQTT server
 mosquitto:
