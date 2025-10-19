@@ -60,11 +60,11 @@ mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net"
 
 # web app
 gui:
-  image: "ks89/gui:v2.1.1"
+  image: "ks89/gui:develop"
   serviceName: "gui-svc"
 
 admission:
-  image: "ks89/admission:v1.0.0"
+  image: "ks89/admission:develop"
   nginxImage: "nginx:1.29.1-alpine"
   serviceName: admission-svc
   nginxServiceName: admission-nginx-svc
@@ -74,13 +74,13 @@ admission:
     enable: true
 
 apiDevices:
-  image: "ks89/api-devices:v1.2.0"
+  image: "ks89/api-devices:develop"
   serviceName: api-devices-svc
   grpc: 
     libraryLogEnable: false
 
 apiServer:
-  image: "ks89/api-server:v2.0.0"
+  image: "ks89/api-server:develop"
   serviceName: api-server-svc
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
@@ -95,7 +95,7 @@ apiServer:
     enable: true
 
 register:
-  image: "ks89/register:v1.2.0"
+  image: "ks89/register:develop"
   serviceName: "register-svc"
   # secret key used by the Rocket Framework
   rocketSecretKey:
@@ -105,15 +105,15 @@ register:
     release: "K9hJyBpkTIa06ouMM4EtFKTMMoZc2W6SiBabgbrlDC4="
 
 producer:
-  image: "ks89/producer:v1.1.0"
+  image: "ks89/producer:develop"
   serviceName: producer-svc
 
 consumer:
-  image: "ks89/consumer:v1.2.0"
+  image: "ks89/consumer:develop"
   serviceName: consumer-svc
 
 online:
-  image: "ks89/online:v1.1.0"
+  image: "ks89/online:develop"
   serviceName: online-svc
   # secret key used by the Rocket Framework
   rocketSecretKey:
@@ -123,10 +123,10 @@ online:
     release: "K9hJyBpkTIa06ouMM4EtFKTMMoZc2W6SiBabgbrlDC4="
 
 onlineReceiver:
-  image: "ks89/online-receiver:v1.1.0"
+  image: "ks89/online-receiver:develop"
 
 onlineAlarm:
-  image: "ks89/online-alarm:v1.1.0"
+  image: "ks89/online-alarm:develop"
   # secret key used by the Rocket Framework
   rocketSecretKey:
     # don't use these in production, please generate your secrets with
