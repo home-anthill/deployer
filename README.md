@@ -19,6 +19,7 @@ GitHub releases [HERE](https://github.com/home-anthill/deployer/releases)
 
 Versions:
 
+- 08/01/2026 - 4.0.0
 - 08/10/2025 - 3.0.0
 - 04/09/2025 - 3.0.0-beta.2
 - 03/09/2025 - 3.0.0-beta.1
@@ -53,7 +54,7 @@ Versions:
 
 The MIT License (MIT)
 
-Copyright (c) 2021-2025 Stefano Cappa (Ks89)
+Copyright (c) 2021-2026 Stefano Cappa (Ks89)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

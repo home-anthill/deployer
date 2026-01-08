@@ -30,7 +30,7 @@ letsencrypt:
 
 # k8s-config-reloader
 k8sConfigReloader:
-  image: "ks89/k8s-config-reloader:v1.0.1"
+  image: "ks89/k8s-config-reloader:v1.0.2"
 
 # public MQTT server
 mosquitto:
@@ -55,32 +55,30 @@ rabbitmq:
   user: "rabbituser"
   password: "rabbitpassword" # dafault value, please replace this with your custom valves file
 
-# external mongodb service
+# external mongodb service (for instance Atlas Cloud MongoDB)
 mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net"
 
 # web app
 gui:
-  image: "ks89/gui:develop"
+  image: "ks89/gui:v3.0.0"
   serviceName: "gui-svc"
 
 admission:
-  image: "ks89/admission:develop"
-  nginxImage: "nginx:1.29.1-alpine"
+  image: "ks89/admission:v2.0.0"
+  nginxImage: "nginx:1.29.4-alpine"
   serviceName: admission-svc
   nginxServiceName: admission-nginx-svc
   grpc: 
     libraryLogEnable: false
-  sensors:
-    enable: true
 
 apiDevices:
-  image: "ks89/api-devices:develop"
+  image: "ks89/api-devices:v2.0.0"
   serviceName: api-devices-svc
   grpc: 
     libraryLogEnable: false
 
 apiServer:
-  image: "ks89/api-server:develop"
+  image: "ks89/api-server:v3.0.0"
   serviceName: api-server-svc
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
@@ -95,7 +93,7 @@ apiServer:
     enable: true
 
 register:
-  image: "ks89/register:develop"
+  image: "ks89/register:v2.0.0"
   serviceName: "register-svc"
   # secret key used by the Rocket Framework
   rocketSecretKey:
@@ -105,15 +103,15 @@ register:
     release: "K9hJyBpkTIa06ouMM4EtFKTMMoZc2W6SiBabgbrlDC4="
 
 producer:
-  image: "ks89/producer:develop"
+  image: "ks89/producer:v2.0.0"
   serviceName: producer-svc
 
 consumer:
-  image: "ks89/consumer:develop"
+  image: "ks89/consumer:v2.0.0"
   serviceName: consumer-svc
 
 online:
-  image: "ks89/online:develop"
+  image: "ks89/online:v2.0.0"
   serviceName: online-svc
   # secret key used by the Rocket Framework
   rocketSecretKey:
@@ -123,10 +121,10 @@ online:
     release: "K9hJyBpkTIa06ouMM4EtFKTMMoZc2W6SiBabgbrlDC4="
 
 onlineReceiver:
-  image: "ks89/online-receiver:develop"
+  image: "ks89/online-receiver:v2.0.0"
 
 onlineAlarm:
-  image: "ks89/online-alarm:develop"
+  image: "ks89/online-alarm:v2.0.0"
   # secret key used by the Rocket Framework
   rocketSecretKey:
     # don't use these in production, please generate your secrets with
