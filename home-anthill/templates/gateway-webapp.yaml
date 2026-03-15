@@ -1,0 +1,244 @@
+---
+# Gateway for HTTP and HTTPS web application traffic.
+# NGINX Gateway Fabric creates a LoadBalancer Service for this Gateway;
+# the MetalLB annotation pins it to the configured public IP.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: webapp-gateway
+  namespace: {{ .Values.namespace }}
+spec:
+  gatewayClassName: nginx
+  # infrastructure.annotations are propagated by NGF to the LoadBalancer Service,
+  # allowing MetalLB to assign the specific public IP.
+  infrastructure:
+    annotations:
+      metallb.universe.tf/loadBalancerIPs: {{ .Values.domains.http.publicIp | quote }}
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+  {{- if .Values.domains.http.ssl.enable }}
+  - name: https
+    port: 443
+    protocol: HTTPS
+    hostname: {{ .Values.domains.http.name | quote }}
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: webapp-tls
+  - name: https-www
+    port: 443
+    protocol: HTTPS
+    hostname: {{ printf "www.%s" .Values.domains.http.name | quote }}
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: webapp-tls
+  {{- end }}
+{{- if .Values.domains.http.ssl.enable }}
+---
+# Redirect all HTTP requests to HTTPS (301).
+# Replaces: nginx.ingress.kubernetes.io/ssl-redirect and force-ssl-redirect annotations.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: webapp-http-redirect
+  namespace: {{ .Values.namespace }}
+spec:
+  parentRefs:
+  - name: webapp-gateway
+    sectionName: http
+  hostnames:
+  - {{ .Values.domains.http.name | quote }}
+  - {{ printf "www.%s" .Values.domains.http.name | quote }}
+  rules:
+  - filters:
+    - type: RequestRedirect
+      requestRedirect:
+        scheme: https
+        statusCode: 301
+---
+# Route HTTPS traffic:
+#   /admission  → admission-nginx-svc (NGINX sidecar proxy for the admission gRPC service)
+#   /           → gui-svc
+# Security response headers replace the nginx configuration-snippet annotation.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: webapp-https-route
+  namespace: {{ .Values.namespace }}
+spec:
+  parentRefs:
+  - name: webapp-gateway
+    sectionName: https
+  - name: webapp-gateway
+    sectionName: https-www
+  hostnames:
+  - {{ .Values.domains.http.name | quote }}
+  - {{ printf "www.%s" .Values.domains.http.name | quote }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /admission
+    backendRefs:
+    - name: {{ .Values.admission.nginxServiceName }}
+      port: 80
+    filters:
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        set:
+        - name: X-Frame-Options
+          value: "sameorigin"
+        - name: X-Content-Type-Options
+          value: "nosniff"
+        - name: Referrer-Policy
+          value: "same-origin"
+        - name: Permissions-Policy
+          value: "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+        - name: Content-Security-Policy
+          value: "child-src 'none'; connect-src 'self' https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.googleapis.com/ https://*.gstatic.com/; default-src 'none'; font-src 'self' https://*.gstatic.com/; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; img-src 'self' data: https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.gstatic.com/ https://*.githubusercontent.com/; manifest-src 'self'; media-src 'none'; object-src 'none'; sandbox allow-forms allow-scripts allow-same-origin allow-popups; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://*.googleapis.com/; worker-src 'self' https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.googleapis.com/ https://*.gstatic.com/; base-uri 'self'; require-trusted-types-for 'script'"
+    - type: ExtensionRef
+      extensionRef:
+        group: gateway.nginx.org
+        kind: SnippetsFilter
+        name: webapp-rate-limit
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: {{ .Values.gui.serviceName }}
+      port: 80
+    filters:
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        set:
+        - name: X-Frame-Options
+          value: "sameorigin"
+        - name: X-Content-Type-Options
+          value: "nosniff"
+        - name: Referrer-Policy
+          value: "same-origin"
+        - name: Permissions-Policy
+          value: "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+        - name: Content-Security-Policy
+          value: "child-src 'none'; connect-src 'self' https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.googleapis.com/ https://*.gstatic.com/; default-src 'none'; font-src 'self' https://*.gstatic.com/; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; img-src 'self' data: https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.gstatic.com/ https://*.githubusercontent.com/; manifest-src 'self'; media-src 'none'; object-src 'none'; sandbox allow-forms allow-scripts allow-same-origin allow-popups; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://*.googleapis.com/; worker-src 'self' https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.googleapis.com/ https://*.gstatic.com/; base-uri 'self'; require-trusted-types-for 'script'"
+    - type: ExtensionRef
+      extensionRef:
+        group: gateway.nginx.org
+        kind: SnippetsFilter
+        name: webapp-rate-limit
+{{- else }}
+---
+# Plain HTTP routing (SSL disabled): /admission → admission-nginx-svc, / → gui-svc
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: webapp-http-route
+  namespace: {{ .Values.namespace }}
+spec:
+  parentRefs:
+  - name: webapp-gateway
+    sectionName: http
+  hostnames:
+  - {{ .Values.domains.http.name | quote }}
+  - {{ printf "www.%s" .Values.domains.http.name | quote }}
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /admission
+    backendRefs:
+    - name: {{ .Values.admission.nginxServiceName }}
+      port: 80
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: {{ .Values.gui.serviceName }}
+      port: 80
+{{- end }}
+---
+# NGF ClientSettingsPolicy: enforce a 100 MiB max request body on the webapp Gateway.
+# Replaces: nginx.ingress.kubernetes.io/proxy-body-size and client-max-body-size annotations.
+apiVersion: gateway.nginx.org/v1alpha1
+kind: ClientSettingsPolicy
+metadata:
+  name: webapp-client-settings
+  namespace: {{ .Values.namespace }}
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: webapp-gateway
+  body:
+    maxSize: "100m"
+---
+# NGF SnippetsFilter: rate limit to 100 req/s per IP with a burst of 20.
+# Replaces: nginx.ingress.kubernetes.io/limit-rps annotation.
+#
+# IMPORTANT – SnippetsFilter is an alpha feature in NGINX Gateway Fabric.
+# Enable it when installing NGF:
+#   helm install nginx-gateway-fabric nginx-stable/nginx-gateway-fabric \
+#     --set nginxGateway.snippetsFilters.enable=true
+#
+# The "http" context snippet is deduplicated by NGF (included once per nginx config
+# even though this filter is referenced by multiple HTTPRoute rules above).
+apiVersion: gateway.nginx.org/v1alpha1
+kind: SnippetsFilter
+metadata:
+  name: webapp-rate-limit
+  namespace: {{ .Values.namespace }}
+spec:
+  snippets:
+  - context: http
+    value: "limit_req_zone $binary_remote_addr zone=webapp_per_ip:10m rate=100r/s;"
+  - context: http.server.location
+    value: "limit_req zone=webapp_per_ip burst=20 nodelay;"
+{{- if .Values.domains.http.ssl.enable }}
+---
+# Explicit Certificate for webapp TLS.
+# The cert-manager.io/issuer Gateway annotation (gateway shim) is intentionally
+# NOT used here because it injects a second parentRef into the challenge HTTPRoute,
+# causing a "sectionName or port must be unique" validation error.
+# An explicit Certificate avoids the shim entirely, matching the MQTT pattern.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: webapp-tls
+  namespace: {{ .Values.namespace }}
+spec:
+  secretName: webapp-tls
+  issuerRef:
+    name: cert-issuer-webapp
+    kind: Issuer
+  dnsNames:
+  - {{ .Values.domains.http.name | quote }}
+  - {{ printf "www.%s" .Values.domains.http.name | quote }}
+---
+# cert-manager Issuer for the webapp TLS certificate (Let's Encrypt).
+# Uses Gateway API http01 solver instead of the legacy Ingress-based solver.
+# Requires cert-manager >= 1.15 (Gateway API support is enabled by default).
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cert-issuer-webapp
+  namespace: {{ .Values.namespace }}
+spec:
+  acme:
+    server: {{ .Values.letsencrypt.server.path }}
+    email: {{ .Values.letsencrypt.email }}
+    privateKeySecretRef:
+      name: cert-issuer-webapp
+    solvers:
+    - http01:
+        gatewayHTTPRoute:
+          parentRefs:
+          - name: webapp-gateway
+            namespace: {{ .Values.namespace }}
+            kind: Gateway
+            sectionName: http
+{{- end }}

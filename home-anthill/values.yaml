@@ -30,11 +30,11 @@ letsencrypt:
 
 # k8s-config-reloader
 k8sConfigReloader:
-  image: "ks89/k8s-config-reloader:v1.0.3"
+  image: "ks89/k8s-config-reloader:v1.0.4"
 
 # public MQTT server
 mosquitto:
-  image: "ks89/mosquitto:v2.1.0"
+  image: "ks89/mosquitto:v2.1.1"
   serviceName: "mosquitto-svc"
   dataFolder: "/root/mosquitto-persistence-data"
   auth:
@@ -44,7 +44,7 @@ mosquitto:
 
 # internal redis server
 redis:
-  image: "redis:8"
+  image: "dhi.io/redis:8"
   serviceName: "redis-svc"
   dataFolder: "/root/redis-data"
 
@@ -56,29 +56,29 @@ rabbitmq:
   password: "rabbitpassword" # dafault value, please replace this with your custom valves file
 
 # external mongodb service (for instance Atlas Cloud MongoDB)
-mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net"
+mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net" # <-- update this with your MongoDB URL, for instance from Atlas Cloud MongoDB
 
 # web app
 gui:
-  image: "ks89/gui:v3.0.0"
+  image: "ks89/gui:v3.1.0"
   serviceName: "gui-svc"
 
 admission:
-  image: "ks89/admission:v3.0.0"
-  nginxImage: "nginx:1.29.4-alpine"
+  image: "ks89/admission:v3.0.1"
+  nginxImage: "dhi.io/nginx:1-alpine3.23"
   serviceName: admission-svc
   nginxServiceName: admission-nginx-svc
   grpc: 
     libraryLogEnable: false
 
 apiDevices:
-  image: "ks89/api-devices:v3.0.0"
+  image: "ks89/api-devices:v3.0.1"
   serviceName: api-devices-svc
   grpc: 
     libraryLogEnable: false
 
 apiServer:
-  image: "ks89/api-server:v4.0.0"
+  image: "ks89/api-server:v4.0.1"
   serviceName: api-server-svc
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
@@ -93,7 +93,7 @@ apiServer:
     enable: true
 
 register:
-  image: "ks89/register:v2.0.1"
+  image: "ks89/register:v2.0.2"
   serviceName: "register-svc"
   # secret key used by the Rocket Framework
   rocketSecretKey:

@@ -1,0 +1,97 @@
+---
+# Gateway for MQTT (TCP) traffic.
+# NGINX Gateway Fabric creates a LoadBalancer Service for this Gateway;
+# the MetalLB annotation pins it to the configured MQTT public IP.
+#
+# The HTTP listener on port 80 exists solely so cert-manager can complete
+# the Let's Encrypt http01 ACME challenge for the mqtt-tls certificate when
+# SSL is enabled. It is not used for regular MQTT traffic.
+#
+# TCPRoute is part of the Gateway API EXPERIMENTAL channel.
+# See the README / NOTES.txt for the steps to enable it on K3S.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: mqtt-gateway
+  namespace: {{ .Values.namespace }}
+spec:
+  gatewayClassName: nginx
+  # infrastructure.annotations are propagated by NGF to the LoadBalancer Service,
+  # allowing MetalLB to assign the specific public IP.
+  infrastructure:
+    annotations:
+      metallb.universe.tf/loadBalancerIPs: {{ .Values.domains.mqtt.publicIp | quote }}
+  listeners:
+  {{- if .Values.domains.mqtt.ssl.enable }}
+  # HTTP listener required only for the Let's Encrypt http01 ACME challenge.
+  - name: http
+    port: 80
+    protocol: HTTP
+  # Raw TCP listener; Mosquitto handles TLS termination internally.
+  - name: mqtts
+    port: 8883
+    protocol: TCP
+  {{- else }}
+  - name: mqtt
+    port: 1883
+    protocol: TCP
+  {{- end }}
+---
+# TCPRoute forwards all TCP connections on the MQTT listener to the Mosquitto service.
+# Uses Gateway API v1alpha2 (experimental channel).
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: mqtt-route
+  namespace: {{ .Values.namespace }}
+spec:
+  parentRefs:
+  - name: mqtt-gateway
+    sectionName: {{ .Values.domains.mqtt.ssl.enable | ternary "mqtts" "mqtt" }}
+  rules:
+  - backendRefs:
+    - name: {{ .Values.mosquitto.serviceName }}
+      port: {{ .Values.domains.mqtt.ssl.enable | ternary 8883 1883 }}
+{{- if .Values.domains.mqtt.ssl.enable }}
+---
+# cert-manager Issuer for the MQTT TLS certificate (Let's Encrypt).
+# The http01 challenge is served via the mqtt-gateway HTTP listener on port 80,
+# which receives traffic from the MQTT public IP.
+# Requires cert-manager >= 1.15 (Gateway API support is enabled by default).
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: cert-issuer-mqtt
+  namespace: {{ .Values.namespace }}
+spec:
+  acme:
+    server: {{ .Values.letsencrypt.server.path }}
+    email: {{ .Values.letsencrypt.email }}
+    privateKeySecretRef:
+      name: cert-issuer-mqtt
+    solvers:
+    - http01:
+        gatewayHTTPRoute:
+          parentRefs:
+          - name: mqtt-gateway
+            namespace: {{ .Values.namespace }}
+            kind: Gateway
+---
+# Explicit Certificate for Mosquitto TLS.
+# cert-manager's gateway shim only auto-creates Certificates for TLS listeners
+# with certificateRefs. Since mqtt-gateway uses protocol: TCP (Mosquitto handles
+# TLS termination internally), the Certificate must be declared explicitly.
+# The resulting "mqtt-tls" secret is mounted directly into the Mosquitto pod.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mqtt-tls
+  namespace: {{ .Values.namespace }}
+spec:
+  secretName: mqtt-tls
+  issuerRef:
+    name: cert-issuer-mqtt
+    kind: Issuer
+  dnsNames:
+  - {{ .Values.domains.mqtt.name | quote }}
+{{- end }}
