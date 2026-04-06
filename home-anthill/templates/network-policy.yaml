@@ -32,6 +32,9 @@
 #   Kubelet → pods with HTTP health probes :80 (nodesCIDR)
 #   Kubelet → api-devices health probe     :50051 (nodesCIDR)
 #   All pods → kube-dns :53 UDP/TCP
+#
+#   (SSL only) NGF → cert-manager solver :8089 (ACME HTTP-01 challenge)
+#   (SSL only) api-devices/producer/online-receiver → MQTT public IP :8883
 
 ---
 # 1. Default: deny all ingress and egress within the namespace.
@@ -119,6 +122,16 @@ spec:
       protocol: TCP
     - port: 8883
       protocol: TCP
+  {{- if or .Values.domains.http.ssl.enable .Values.domains.mqtt.ssl.enable }}
+  # cert-manager ACME HTTP-01 solver pods (temporary, created during cert issuance)
+  - to:
+    - podSelector:
+        matchLabels:
+          acme.cert-manager.io/http01-solver: "true"
+    ports:
+    - port: 8089
+      protocol: TCP
+  {{- end }}
 
 ---
 # 4. gui: receives traffic from NGF; kubelet health probe on :80.
@@ -210,7 +223,7 @@ spec:
       protocol: TCP
 
 ---
-# 5. admission-nginx (NGINX sidecar): receives traffic from NGF on :80.
+# 6. admission-nginx (NGINX sidecar): receives traffic from NGF on :80.
 #    Egress: proxies /admission to admission pod on :80.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -229,6 +242,8 @@ spec:
     - podSelector:
         matchLabels:
           app.kubernetes.io/managed-by: ngf-nginx
+    - ipBlock:
+        cidr: {{ .Values.network.nodesCIDR }}
     ports:
     - port: 80
       protocol: TCP
@@ -242,7 +257,7 @@ spec:
       protocol: TCP
 
 ---
-# 6. admission: receives traffic from admission-nginx and kubelet probe on :80.
+# 7. admission: receives traffic from admission-nginx and kubelet probe on :80.
 #    Egress: api-devices (gRPC :50051), register (HTTP :80), MongoDB Atlas (:27017).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -287,9 +302,10 @@ spec:
       protocol: TCP
 
 ---
-# 7. api-devices: receives gRPC from api-server and admission on :50051.
+# 8. api-devices: receives gRPC from api-server and admission on :50051.
 #    Kubelet gRPC health probe on :50051.
 #    Egress: mosquitto (MQTT :1883/:8883), MongoDB Atlas (:27017).
+#    When MQTT SSL is enabled, connects via external MQTT domain instead of internal service.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -329,9 +345,18 @@ spec:
   - ports:
     - port: 27017
       protocol: TCP
+  {{- if .Values.domains.mqtt.ssl.enable }}
+  # MQTT via external domain when SSL is enabled
+  - to:
+    - ipBlock:
+        cidr: {{ .Values.domains.mqtt.publicIp }}/32
+    ports:
+    - port: 8883
+      protocol: TCP
+  {{- end }}
 
 ---
-# 8. register: receives HTTP from admission and api-server on :80.
+# 9. register: receives HTTP from admission and api-server on :80.
 #    Kubelet health probe on :80.
 #    Egress: MongoDB Atlas (:27017).
 apiVersion: networking.k8s.io/v1
@@ -366,8 +391,8 @@ spec:
       protocol: TCP
 
 ---
-# 9. online: receives HTTP from api-server on :80 and kubelet probe on :80.
-#    Egress: redis (:6379).
+# 10. online: receives HTTP from api-server on :80 and kubelet probe on :80.
+#     Egress: redis (:6379).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -400,8 +425,9 @@ spec:
       protocol: TCP
 
 ---
-# 10. online-receiver: no service callers; kubelet health probe on :80.
+# 11. online-receiver: no service callers; kubelet health probe on :80.
 #     Egress: mosquitto (MQTT subscribe :1883/:8883), redis (:6379).
+#     When MQTT SSL is enabled, connects via external MQTT domain instead of internal service.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -438,9 +464,18 @@ spec:
     ports:
     - port: 6379
       protocol: TCP
+  {{- if .Values.domains.mqtt.ssl.enable }}
+  # MQTT via external domain when SSL is enabled
+  - to:
+    - ipBlock:
+        cidr: {{ .Values.domains.mqtt.publicIp }}/32
+    ports:
+    - port: 8883
+      protocol: TCP
+  {{- end }}
 
 ---
-# 11. online-alarm: no service callers; kubelet health probe on :80.
+# 12. online-alarm: no service callers; kubelet health probe on :80.
 #     Egress: redis (:6379), FCM/Google (:443).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -475,8 +510,9 @@ spec:
       protocol: TCP
 
 ---
-# 12. producer: no inbound callers, no health probes.
+# 13. producer: no inbound callers, no health probes.
 #     Egress: mosquitto (MQTT subscribe :1883/:8883), rabbitmq (AMQP :5672).
+#     When MQTT SSL is enabled, connects via external MQTT domain instead of internal service.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -505,9 +541,18 @@ spec:
     ports:
     - port: 5672
       protocol: TCP
+  {{- if .Values.domains.mqtt.ssl.enable }}
+  # MQTT via external domain when SSL is enabled
+  - to:
+    - ipBlock:
+        cidr: {{ .Values.domains.mqtt.publicIp }}/32
+    ports:
+    - port: 8883
+      protocol: TCP
+  {{- end }}
 
 ---
-# 13. consumer: no inbound callers, no health probes.
+# 14. consumer: no inbound callers, no health probes.
 #     Egress: rabbitmq (AMQP :5672), MongoDB Atlas (:27017).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -534,7 +579,7 @@ spec:
       protocol: TCP
 
 ---
-# 14. mosquitto: receives MQTT from NGF (ESP32 devices via TCPRoute) and from
+# 15. mosquitto: receives MQTT from NGF (ESP32 devices via TCPRoute) and from
 #     internal subscribers (api-devices, producer, online-receiver).
 #     No egress needed — it is a pure broker.
 apiVersion: networking.k8s.io/v1
@@ -577,7 +622,7 @@ spec:
       protocol: TCP
 
 ---
-# 15. redis: receives connections from online, online-receiver, online-alarm.
+# 16. redis: receives connections from online, online-receiver, online-alarm.
 #     No egress needed — it is a pure cache.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -606,7 +651,7 @@ spec:
       protocol: TCP
 
 ---
-# 16. rabbitmq: receives AMQP from producer and consumer on :5672.
+# 17. rabbitmq: receives AMQP from producer and consumer on :5672.
 #     RabbitMQ Operator (rabbitmq-system namespace) needs :5672/:15672 for management.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -640,5 +685,29 @@ spec:
       protocol: TCP
     - port: 15672
       protocol: TCP
+
+{{- if or .Values.domains.http.ssl.enable .Values.domains.mqtt.ssl.enable }}
+---
+# 18. cert-manager ACME HTTP-01 solver: temporary pods created during certificate
+#     issuance/renewal. Receives challenge traffic from NGF on :8089.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cert-manager-solver
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      acme.cert-manager.io/http01-solver: "true"
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/managed-by: ngf-nginx
+    ports:
+    - port: 8089
       protocol: TCP
+{{- end }}
 {{- end }}
