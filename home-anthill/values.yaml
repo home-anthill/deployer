@@ -40,6 +40,14 @@ alpine:
   image: "alpine"
   # hardened base images from dhi.io (used only if dhi.enabled is true)
   hardenedImage: "dhi.io/alpine-base:3.23"
+  # Resources for init-certs init containers that use this image
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "16Mi"
+    limits:
+      cpu: "50m"
+      memory: "32Mi"
 
 # nginx image
 nginx:
@@ -49,17 +57,31 @@ nginx:
 
 # k8s-config-reloader
 k8sConfigReloader:
-  image: "ks89/k8s-config-reloader:v1.0.4"
+  image: "ks89/k8s-config-reloader:develop"
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "16Mi"
+    limits:
+      cpu: "50m"
+      memory: "32Mi"
 
 # public MQTT server
 mosquitto:
-  image: "ks89/mosquitto:v3.0.0"
+  image: "ks89/mosquitto:develop"
   serviceName: "mosquitto-svc"
   dataFolder: "/root/mosquitto-persistence-data"
   auth:
     enable: true
     username: "mosquser"
     password: "Password1!"
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "64Mi"
+    limits:
+      cpu: "300m"
+      memory: "128Mi"
 
 # internal redis server
 redis:
@@ -72,6 +94,13 @@ redis:
   dataFolder: "/root/redis-data"
   username: "redisuser"
   password: "your-redis-password" # default value, please replace this with your custom values file
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
 
 # internal rabbitmq server
 rabbitmq:
@@ -92,24 +121,53 @@ mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net" # <-- updat
 
 # web app
 gui:
-  image: "ks89/gui:v3.1.0"
+  image: "ks89/gui:develop"
   serviceName: "gui-svc"
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
 
 admission:
-  image: "ks89/admission:v3.0.2"
+  image: "ks89/admission:develop"
   serviceName: admission-svc
   nginxServiceName: admission-nginx-svc
   grpc: 
     libraryLogEnable: false
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "64Mi"
+    limits:
+      cpu: "300m"
+      memory: "128Mi"
+  # Resources for the admission-nginx sidecar container
+  nginxResources:
+    requests:
+      cpu: "5m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
 
 apiDevices:
-  image: "ks89/api-devices:v3.0.2"
+  image: "ks89/api-devices:develop"
   serviceName: api-devices-svc
   grpc: 
     libraryLogEnable: false
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "64Mi"
+    limits:
+      cpu: "300m"
+      memory: "128Mi"
 
 apiServer:
-  image: "ks89/api-server:v4.0.2"
+  image: "ks89/api-server:develop"
   serviceName: api-server-svc
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
@@ -123,43 +181,98 @@ apiServer:
     libraryLogEnable: false
   sensors:
     enable: true
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "256Mi"
 
 register:
-  image: "ks89/register:v2.0.2"
+  image: "ks89/register:develop"
   serviceName: "register-svc"
   # secret key used by the Rocket Framework
   rocketSecretKey:
     # don't use these in production, please generate your secrets with
     # `openssl rand -base64 32`
-    release: "K9hJyBpkTIa06ouMM4EtFKTMMoZc2W6SiBabgbrlDC4="
+    release: "jZvacFEs/cZOUtJJuM3Ia91JqXSipBu7T0tC8cEK+Lo="
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "32Mi"
+    limits:
+      cpu: "200m"
+      memory: "64Mi"
 
 producer:
   image: "ks89/producer:develop"
   serviceName: producer-svc
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "32Mi"
+    limits:
+      cpu: "200m"
+      memory: "64Mi"
 
 consumer:
-  image: "ks89/consumer:v3.0.2"
+  image: "ks89/consumer:develop"
   serviceName: consumer-svc
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "32Mi"
+    limits:
+      cpu: "200m"
+      memory: "64Mi"
 
 online:
-  image: "ks89/online:v2.0.3"
+  image: "ks89/online:develop"
   serviceName: online-svc
   # secret key used by the Rocket Framework
   rocketSecretKey:
     # don't use these in production, please generate your secrets with
     # `openssl rand -base64 32`
-    release: "K9hJyBpkTIa06ouMM4EtFKTMMoZc2W6SiBabgbrlDC4="
+    release: "3bEbgO9CpaSgn8F+1tyGTkYABknj8AEIfrsreHFQL38="
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "32Mi"
+    limits:
+      cpu: "200m"
+      memory: "64Mi"
 
 onlineReceiver:
-  image: "ks89/online-receiver:v2.0.3"
-
-onlineAlarm:
-  image: "ks89/online-alarm:v2.0.3"
+  image: "ks89/online-receiver:develop"
+  serviceName: "online-receiver-svc"
   # secret key used by the Rocket Framework
   rocketSecretKey:
     # don't use these in production, please generate your secrets with
     # `openssl rand -base64 32`
     release: "K9hJyBpkTIa06ouMM4EtFKTMMoZc2W6SiBabgbrlDC4="
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "32Mi"
+    limits:
+      cpu: "200m"
+      memory: "64Mi"
+
+onlineAlarm:
+  image: "ks89/online-alarm:develop"
+  # secret key used by the Rocket Framework
+  rocketSecretKey:
+    # don't use these in production, please generate your secrets with
+    # `openssl rand -base64 32`
+    release: "ljBbHk8N95NXDYGafCxTJdJtuc7DubBTM1ma3ErD++Y="
+  resources:
+    requests:
+      cpu: "5m"
+      memory: "32Mi"
+    limits:
+      cpu: "200m"
+      memory: "64Mi"
   firebaseServiceAccount:
     {
       "type": "service_account",
@@ -174,6 +287,22 @@ onlineAlarm:
       "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-204wn%40<PROJECT_ID>.iam.gserviceaccount.com",
       "universe_domain": "googleapis.com"
     }
+
+# network policy configuration
+serviceAccounts:
+  # Set to false to skip creating ServiceAccount resources and binding them to pods
+  enabled: false
+
+network:
+  # Set to false to skip deploying all NetworkPolicy resources (useful for dev/test clusters)
+  enabled: true
+  # Namespace where NGINX Gateway Fabric data-plane pods run
+  nginxGatewayNamespace: "nginx-gateway"
+  # Namespace where RabbitMQ Kubernetes Operator runs
+  rabbitmqOperatorNamespace: "rabbitmq-system"
+  # CIDR covering all Kubernetes node IPs — allows kubelet health-probe traffic.
+  # Restrict to your actual node IP range in production (e.g. "10.0.0.0/24").
+  nodesCIDR: "10.0.0.0/8"
 
 # debug configuration, not for production environment
 debug:

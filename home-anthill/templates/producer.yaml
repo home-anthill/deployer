@@ -55,6 +55,10 @@ spec:
       labels:
         app: producer
     spec:
+      {{- if .Values.serviceAccounts.enabled }}
+      serviceAccountName: producer
+      automountServiceAccountToken: false
+      {{- end }}
       {{- if .Values.dhi.enabled }}
       imagePullSecrets:
         - name: dhi-registry-secret
@@ -63,6 +67,12 @@ spec:
       initContainers:
         - name: init-certs
           image: {{ if .Values.dhi.enabled }}{{ .Values.alpine.hardenedImage }}{{ else }}{{ .Values.alpine.image }}{{ end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.alpine.resources | nindent 12 }}
           command: 
             - "/bin/sh"
             - "-c"
@@ -85,10 +95,13 @@ spec:
         command: ["/bin/sh"]
         args: ["-c", "chmod +x /app/producer; /app/producer; sleep Infinity;"]
         {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.producer.resources | nindent 10 }}
         ports:
-        - name: amqp
-          containerPort: 5672
-          protocol: TCP
         {{- if .Values.domains.mqtt.ssl.enable }}
         - name: mqtts
           containerPort: 8883
@@ -141,7 +154,3 @@ spec:
       port: 1883
       targetPort: mqtt
     {{- end }}
-    - name: amqp
-      protocol: TCP
-      port: 5672
-      targetPort: amqp

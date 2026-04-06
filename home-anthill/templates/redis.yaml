@@ -6,9 +6,9 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   redis.conf: |-
-    dbfilename snapshot.rdb
-    # save snapshot if 1 keys has ve been modified in 120 seconds
-    save 120 1
+    # Disable RDB snapshots — Redis is used as a cache, persistence is not needed.
+    # This avoids MISCONF errors when the hostPath volume is not writable.
+    save ""
     protected-mode no
     bind 0.0.0.0
     user {{ .Values.redis.username }} on >{{ .Values.redis.password }} ~* +@all
@@ -29,6 +29,10 @@ spec:
       labels:
         app: redis
     spec:
+      {{- if .Values.serviceAccounts.enabled }}
+      serviceAccountName: redis
+      automountServiceAccountToken: false
+      {{- end }}
       {{- if .Values.dhi.enabled }}
       imagePullSecrets:
         - name: dhi-registry-secret
@@ -43,6 +47,12 @@ spec:
       - name: redis
         image: {{ if .Values.dhi.enabled }}{{ .Values.redis.hardenedImage }}{{ else }}{{ .Values.redis.image }}{{ end }}
         imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.redis.resources | nindent 10 }}
         readinessProbe:
           exec:
             command:

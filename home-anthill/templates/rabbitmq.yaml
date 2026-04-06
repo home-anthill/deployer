@@ -14,6 +14,7 @@ kind: RabbitmqCluster
 metadata:
   name: rabbitmq
   namespace: {{ .Values.namespace }}
+spec: {}
 ---
 apiVersion: rabbitmq.com/v1beta1
 kind: User
@@ -77,9 +78,9 @@ spec:
   vhost: "/"
   user: "{{ .Values.rabbitmq.producer.user }}"
   permissions:
-    write: "^ks89$"
+    write: "^(amq\\.default|ks89)$"
     configure: "^ks89$"
-    read: ""
+    read: "^ks89$"
   rabbitmqClusterReference:
     name: rabbitmq
 ---

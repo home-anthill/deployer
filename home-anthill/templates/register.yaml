@@ -34,6 +34,10 @@ spec:
       labels:
         app: register
     spec:
+      {{- if .Values.serviceAccounts.enabled }}
+      serviceAccountName: register
+      automountServiceAccountToken: false
+      {{- end }}
       containers:
       - name: register
         image: {{ .Values.register.image }}
@@ -44,6 +48,12 @@ spec:
         command: ["/bin/sh"]
         args: ["-c", "chmod +x /app/register; /app/register; sleep Infinity;"]
         {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.register.resources | nindent 10 }}
         readinessProbe:
           httpGet:
             path: /keepalive
@@ -58,9 +68,6 @@ spec:
         ports:
         - name: http
           containerPort: 80
-          protocol: TCP
-        - name: rabbitmqgui
-          containerPort: 8080
           protocol: TCP
         volumeMounts:
         - name: register-config
@@ -88,8 +95,4 @@ spec:
     - name: http
       protocol: TCP
       port: 80
-      targetPort: http
-    - name: rabbitmqgui
-      protocol: TCP
-      port: 8080
       targetPort: http

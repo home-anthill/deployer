@@ -39,6 +39,13 @@ data:
     MQTT_USER=
     MQTT_PASSWORD=
     {{ end }}
+  Rocket.toml: |-
+    [default]
+
+    [release]
+    address = "0.0.0.0"
+    port = 80
+    secret_key="{{ .Values.onlineReceiver.rocketSecretKey.release }}"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -55,6 +62,10 @@ spec:
       labels:
         app: online-receiver
     spec:
+      {{- if .Values.serviceAccounts.enabled }}
+      serviceAccountName: online-receiver
+      automountServiceAccountToken: false
+      {{- end }}
       {{- if .Values.dhi.enabled }}
       imagePullSecrets:
         - name: dhi-registry-secret
@@ -63,6 +74,12 @@ spec:
       initContainers:
         - name: init-certs
           image: {{ if .Values.dhi.enabled }}{{ .Values.alpine.hardenedImage }}{{ else }}{{ .Values.alpine.image }}{{ end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.alpine.resources | nindent 12 }}
           command: 
             - "/bin/sh"
             - "-c"
@@ -85,10 +102,35 @@ spec:
         command: ["/bin/sh"]
         args: ["-c", "chmod +x /app/online; /app/online; sleep Infinity;"]
         {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.onlineReceiver.resources | nindent 10 }}
+        readinessProbe:
+          httpGet:
+            path: /keepalive
+            port: http
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /keepalive
+            port: http
+          periodSeconds: 60
+          failureThreshold: 2
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
         volumeMounts:
         - name: online-receiver-config
           mountPath: /app/.env
           subPath: .env
+          readOnly: true
+        - name: online-receiver-config
+          mountPath: /app/Rocket.toml
+          subPath: Rocket.toml
           readOnly: true
         {{- if .Values.domains.mqtt.ssl.enable }}
         - name: tls

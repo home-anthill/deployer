@@ -36,10 +36,21 @@ spec:
       labels:
         app: admission
     spec:
+      {{- if .Values.serviceAccounts.enabled }}
+      serviceAccountName: admission
+      automountServiceAccountToken: false
+      {{- end }}
       containers:
       - name: admission
         image: {{ .Values.admission.image }}
         imagePullPolicy: Always
+        workingDir: /tmp
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.admission.resources | nindent 10 }}
         readinessProbe:
           httpGet:
             path: /admission/keepalive
@@ -66,7 +77,7 @@ spec:
           protocol: TCP
         volumeMounts:
         - name: admission-config
-          mountPath: /.env
+          mountPath: /tmp/.env
           subPath: .env
           readOnly: true
       volumes:
@@ -97,6 +108,7 @@ data:
   # nginx.conf used by the static web app
   # with proxy_pass to api server
   nginx.conf: |-
+    worker_processes auto;
     events {
         worker_connections 1024;
     }
@@ -104,12 +116,22 @@ data:
     http {
       server_tokens off;
 
+      client_max_body_size 1m;
+
       server {
         listen 80;
         listen  [::]:80;
         {{- if .Values.domains.http.name }}
         server_name  {{ .Values.domains.http.name }} www.{{ .Values.domains.http.name }};
         {{- end }}
+
+        # Exact match for health probes — suppresses access log noise.
+        location = /admission/keepalive {
+          access_log off;
+          proxy_pass http://{{ .Values.admission.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:80;
+          proxy_set_header X-Forwarded-For $remote_addr;
+          proxy_set_header Host            $http_host;
+        }
 
         location /admission {
           proxy_pass http://{{ .Values.admission.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:80;
@@ -134,6 +156,10 @@ spec:
       labels:
         app: admission-nginx
     spec:
+      {{- if .Values.serviceAccounts.enabled }}
+      serviceAccountName: admission-nginx
+      automountServiceAccountToken: false
+      {{- end }}
       {{- if .Values.dhi.enabled }}
       imagePullSecrets:
         - name: dhi-registry-secret
@@ -141,6 +167,25 @@ spec:
       containers:
       - name: admission-nginx
         image: {{ if .Values.dhi.enabled }}{{ .Values.nginx.hardenedImage }}{{ else }}{{ .Values.nginx.image }}{{ end }}
+        imagePullPolicy: Always
+        readinessProbe:
+          httpGet:
+            path: /admission/keepalive
+            port: http
+          periodSeconds: 30
+        livenessProbe:
+          httpGet:
+            path: /admission/keepalive
+            port: http
+          periodSeconds: 60
+          failureThreshold: 2
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+            add: ["NET_BIND_SERVICE", "CHOWN", "SETUID", "SETGID"]
+        resources:
+          {{- toYaml .Values.admission.nginxResources | nindent 10 }}
         ports:
           # always enabled to redirect to https
           - name: http
@@ -151,10 +196,22 @@ spec:
             mountPath: /etc/nginx/nginx.conf
             subPath: nginx.conf
             readOnly: true
+          - name: nginx-cache
+            mountPath: /var/cache/nginx
+          - name: nginx-run
+            mountPath: /run
+          - name: nginx-tmp
+            mountPath: /tmp
       volumes:
         - name: admission-nginx-config
           configMap:
             name: admission-nginx-config
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+        - name: nginx-tmp
+          emptyDir: {}
 ---
 kind: Service
 apiVersion: v1

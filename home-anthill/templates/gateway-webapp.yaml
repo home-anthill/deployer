@@ -153,6 +153,20 @@ spec:
     backendRefs:
     - name: {{ .Values.admission.nginxServiceName }}
       port: 80
+    filters:
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        set:
+        - name: X-Frame-Options
+          value: "sameorigin"
+        - name: X-Content-Type-Options
+          value: "nosniff"
+        - name: Referrer-Policy
+          value: "same-origin"
+        - name: Permissions-Policy
+          value: "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+        - name: Content-Security-Policy
+          value: "child-src 'none'; connect-src 'self' https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.googleapis.com/ https://*.gstatic.com/; default-src 'none'; font-src 'self' https://*.gstatic.com/; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; img-src 'self' data: https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.gstatic.com/ https://*.githubusercontent.com/; manifest-src 'self'; media-src 'none'; object-src 'none'; sandbox allow-forms allow-scripts allow-same-origin allow-popups; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://*.googleapis.com/; worker-src 'self' https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.googleapis.com/ https://*.gstatic.com/; base-uri 'self'; require-trusted-types-for 'script'"
   - matches:
     - path:
         type: PathPrefix
@@ -160,10 +174,27 @@ spec:
     backendRefs:
     - name: {{ .Values.gui.serviceName }}
       port: 80
+    filters:
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        set:
+        - name: X-Frame-Options
+          value: "sameorigin"
+        - name: X-Content-Type-Options
+          value: "nosniff"
+        - name: Referrer-Policy
+          value: "same-origin"
+        - name: Permissions-Policy
+          value: "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+        - name: Content-Security-Policy
+          value: "child-src 'none'; connect-src 'self' https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.googleapis.com/ https://*.gstatic.com/; default-src 'none'; font-src 'self' https://*.gstatic.com/; form-action 'self'; frame-ancestors 'none'; frame-src 'none'; img-src 'self' data: https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.gstatic.com/ https://*.githubusercontent.com/; manifest-src 'self'; media-src 'none'; object-src 'none'; sandbox allow-forms allow-scripts allow-same-origin allow-popups; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://*.googleapis.com/; worker-src 'self' https://*.google.com/ https://*.googleusercontent.com/ https://*.fbsbx.com/ https://*.googleapis.com/ https://*.gstatic.com/; base-uri 'self'; require-trusted-types-for 'script'"
 {{- end }}
 ---
-# NGF ClientSettingsPolicy: enforce a 100 MiB max request body on the webapp Gateway.
+# NGF ClientSettingsPolicy: enforce a 100 MiB max request body on the webapp Gateway
+# and a minimum TLS 1.2 requirement with a modern cipher list.
 # Replaces: nginx.ingress.kubernetes.io/proxy-body-size and client-max-body-size annotations.
+# Note: the tls block only takes effect when the Gateway has HTTPS listeners
+# (i.e. domains.http.ssl.enable: true). It is harmless when SSL is disabled.
 apiVersion: gateway.nginx.org/v1alpha1
 kind: ClientSettingsPolicy
 metadata:
@@ -176,6 +207,21 @@ spec:
     name: webapp-gateway
   body:
     maxSize: "100m"
+  {{- if .Values.domains.http.ssl.enable }}
+  # tls.minVersion requires NGF >= 1.4.0 — uncomment once your cluster is on a supported version
+  # tls:
+  #   minVersion: "TLSv1.2"
+  #   ciphers:
+  #     - "TLS_AES_128_GCM_SHA256"
+  #     - "TLS_AES_256_GCM_SHA384"
+  #     - "TLS_CHACHA20_POLY1305_SHA256"
+  #     - "ECDHE-ECDSA-AES128-GCM-SHA256"
+  #     - "ECDHE-RSA-AES128-GCM-SHA256"
+  #     - "ECDHE-ECDSA-AES256-GCM-SHA384"
+  #     - "ECDHE-RSA-AES256-GCM-SHA384"
+  #     - "ECDHE-ECDSA-CHACHA20-POLY1305"
+  #     - "ECDHE-RSA-CHACHA20-POLY1305"
+  {{- end }}
 ---
 # NGF SnippetsFilter: rate limit to 100 req/s per IP with a burst of 20.
 # Replaces: nginx.ingress.kubernetes.io/limit-rps annotation.

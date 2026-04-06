@@ -37,6 +37,10 @@ spec:
       labels:
         app: online-alarm
     spec:
+      {{- if .Values.serviceAccounts.enabled }}
+      serviceAccountName: online-alarm
+      automountServiceAccountToken: false
+      {{- end }}
       containers:
       - name: online-alarm
         image: {{ .Values.onlineAlarm.image }}
@@ -47,6 +51,12 @@ spec:
         command: ["/bin/sh"]
         args: ["-c", "chmod +x /app/online; /app/online; sleep Infinity;"]
         {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.onlineAlarm.resources | nindent 10 }}
         readinessProbe:
           httpGet:
             path: /keepalive

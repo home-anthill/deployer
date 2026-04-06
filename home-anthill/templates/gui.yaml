@@ -8,6 +8,7 @@ data:
   # nginx.conf used by the static web app
   # with proxy_pass to api server
   nginx.conf: |-
+    worker_processes auto;
     events {
         worker_connections 1024;
     }
@@ -18,12 +19,21 @@ data:
       # won't load SVGs and CSS files in the right way
       include /etc/nginx/mime.types;
 
+      client_max_body_size 10m;
+
       server {
         listen 80;
         listen  [::]:80;
         {{- if .Values.domains.http.name }}
         server_name  {{ .Values.domains.http.name }} www.{{ .Values.domains.http.name }};
         {{- end }}
+
+        # Dedicated health-probe endpoint — exact match suppresses access log noise.
+        location = /keepalive {
+          access_log off;
+          return 200 'ok';
+          add_header Content-Type text/plain;
+        }
 
         location / {
           root /etc/nginx/html/html;
@@ -54,18 +64,28 @@ spec:
       labels:
         app: gui
     spec:
+      {{- if .Values.serviceAccounts.enabled }}
+      serviceAccountName: gui
+      automountServiceAccountToken: false
+      {{- end }}
       containers:
       - name: gui
         image: {{ .Values.gui.image }}
         imagePullPolicy: Always
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.gui.resources | nindent 10 }}
         readinessProbe:
           httpGet:
-            path: /
+            path: /keepalive
             port: http
           periodSeconds: 30
         livenessProbe:
           httpGet:
-            path: /
+            path: /keepalive
             port: http
           periodSeconds: 60
           failureThreshold: 2

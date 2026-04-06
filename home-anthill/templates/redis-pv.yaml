@@ -13,7 +13,7 @@ spec:
   capacity:
     storage: 2Gi
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   hostPath:
     path: {{ .Values.redis.dataFolder }}
 ---
@@ -26,7 +26,8 @@ spec:
   storageClassName: ""
   volumeName: redis-data-volume
   accessModes:
-    - ReadWriteMany
+    - ReadWriteOnce
   resources:
     requests:
       storage: 2Gi
+---

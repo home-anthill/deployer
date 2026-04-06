@@ -56,6 +56,10 @@ spec:
       labels:
         app: api-devices
     spec:
+      {{- if .Values.serviceAccounts.enabled }}
+      serviceAccountName: api-devices
+      automountServiceAccountToken: false
+      {{- end }}
       {{- if .Values.dhi.enabled }}
       imagePullSecrets:
         - name: dhi-registry-secret
@@ -64,6 +68,12 @@ spec:
       initContainers:
         - name: init-certs
           image: {{ if .Values.dhi.enabled }}{{ .Values.alpine.hardenedImage }}{{ else }}{{ .Values.alpine.image }}{{ end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.alpine.resources | nindent 12 }}
           command: 
             - "/bin/sh"
             - "-c"
@@ -80,6 +90,13 @@ spec:
       - name: api-devices
         image: {{ .Values.apiDevices.image }}
         imagePullPolicy: Always
+        workingDir: /tmp
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.apiDevices.resources | nindent 10 }}
         readinessProbe:
           grpc:
             port: 50051
@@ -103,7 +120,7 @@ spec:
           protocol: TCP
         volumeMounts:
           - name: api-devices-config
-            mountPath: /.env
+            mountPath: /tmp/.env
             subPath: .env
             readOnly: true
           {{- if .Values.domains.mqtt.ssl.enable }}

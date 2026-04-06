@@ -55,10 +55,21 @@ spec:
       labels:
         app: api-server
     spec:
+      {{- if .Values.serviceAccounts.enabled }}
+      serviceAccountName: api-server
+      automountServiceAccountToken: false
+      {{- end }}
       containers:
       - name: api-server
         image: {{ .Values.apiServer.image }}
         imagePullPolicy: Always
+        workingDir: /tmp
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.apiServer.resources | nindent 10 }}
         readinessProbe:
           httpGet:
             path: /api/keepalive
@@ -85,7 +96,7 @@ spec:
           protocol: TCP
         volumeMounts:
         - name: api-server-config
-          mountPath: /.env
+          mountPath: /tmp/.env
           subPath: .env
           readOnly: true
       volumes:

@@ -29,6 +29,10 @@ spec:
       labels:
         app: consumer
     spec:
+      {{- if .Values.serviceAccounts.enabled }}
+      serviceAccountName: consumer
+      automountServiceAccountToken: false
+      {{- end }}
       containers:
       - name: consumer
         image: {{ .Values.consumer.image }}
@@ -39,6 +43,12 @@ spec:
         command: ["/bin/sh"]
         args: ["-c", "chmod +x /app/consumer; /app/consumer; sleep Infinity;"]
         {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.consumer.resources | nindent 10 }}
         ports:
         - name: http
           containerPort: 80

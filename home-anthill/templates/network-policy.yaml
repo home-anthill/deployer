@@ -1,0 +1,644 @@
+{{- if .Values.network.enabled }}
+# Network isolation policies.
+#
+# Full communication matrix (all flows implemented below):
+#
+#   External (ESP32/browser) → NGF → mosquitto      :1883/8883  (MQTT/MQTTS)
+#   External (browser)       → NGF → gui             :80         (HTTP)
+#   External (browser)       → NGF → admission-nginx :80         (HTTP /admission)
+#
+#   admission-nginx  → admission    :80     (HTTP proxy)
+#   admission        → api-devices  :50051  (gRPC)
+#   admission        → register     :80     (HTTP sensor reg/keepalive)
+#   admission        → MongoDB Atlas         (external :27017)
+#   api-server       → api-devices  :50051  (gRPC device commands)
+#   api-server       → register     :80     (HTTP sensor data)
+#   api-server       → online       :80     (HTTP online status / FCM token)
+#   api-server       → MongoDB Atlas         (external :27017)
+#   api-server       → GitHub OAuth2         (external :443)
+#   api-devices      → mosquitto    :1883/8883 (MQTT publish to devices)
+#   api-devices      → MongoDB Atlas          (external :27017)
+#   producer         → mosquitto    :1883/8883 (MQTT subscribe sensor topics)
+#   producer         → rabbitmq     :5672   (AMQP publish)
+#   consumer         → rabbitmq     :5672   (AMQP consume)
+#   consumer         → MongoDB Atlas          (external :27017)
+#   online-receiver  → mosquitto    :1883/8883 (MQTT subscribe online topics)
+#   online-receiver  → redis        :6379
+#   online           → redis        :6379
+#   online-alarm     → redis        :6379
+#   online-alarm     → FCM / Google  (external :443)
+#   RabbitMQ Operator → rabbitmq    :5672/:15672 (management)
+#
+#   Kubelet → pods with HTTP health probes :80 (nodesCIDR)
+#   Kubelet → api-devices health probe     :50051 (nodesCIDR)
+#   All pods → kube-dns :53 UDP/TCP
+
+---
+# 1. Default: deny all ingress and egress within the namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+# 2. Allow all pods to reach kube-dns for service discovery.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
+
+---
+# 3. NGF data plane pods (webapp-gateway-nginx, mqtt-gateway-nginx) run in this
+#    namespace and are covered by default-deny-all. They need:
+#      Ingress:  internet → port 80/443 (webapp) and 1883/8883 (mqtt)
+#      Egress:   to direct backend pods: gui, admission-nginx, mosquitto
+#    Note: api-server is NOT a direct NGF backend — traffic goes NGF → gui → api-server.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ngf-dataplane
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/managed-by: ngf-nginx
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+    ports:
+    - port: 80
+      protocol: TCP
+    - port: 443
+      protocol: TCP
+    - port: 1883
+      protocol: TCP
+    - port: 8883
+      protocol: TCP
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: gui
+    ports:
+    - port: 80
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app: admission-nginx
+    ports:
+    - port: 80
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app: mosquitto
+    ports:
+    - port: 1883
+      protocol: TCP
+    - port: 8883
+      protocol: TCP
+
+---
+# 4. gui: receives traffic from NGF; kubelet health probe on :80.
+#    Egress: proxies /api to api-server.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gui
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: gui
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/managed-by: ngf-nginx
+    - ipBlock:
+        cidr: {{ .Values.network.nodesCIDR }}
+    ports:
+    - port: 80
+      protocol: TCP
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: api-server
+    ports:
+    - port: 80
+      protocol: TCP
+
+---
+# 5. api-server: receives traffic from gui nginx proxy on :80 and kubelet probe.
+#    Egress: api-devices (gRPC), register (HTTP), online (HTTP),
+#            MongoDB Atlas (:27017), GitHub OAuth2 (:443).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-server
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: api-server
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: gui
+    - ipBlock:
+        cidr: {{ .Values.network.nodesCIDR }}
+    ports:
+    - port: 80
+      protocol: TCP
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: api-devices
+    ports:
+    - port: 50051
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app: register
+    ports:
+    - port: 80
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app: online
+    ports:
+    - port: 80
+      protocol: TCP
+  # MongoDB Atlas (external) + GitHub OAuth2 (external)
+  - ports:
+    - port: 27017
+      protocol: TCP
+    - port: 443
+      protocol: TCP
+
+---
+# 5. admission-nginx (NGINX sidecar): receives traffic from NGF on :80.
+#    Egress: proxies /admission to admission pod on :80.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-admission-nginx
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: admission-nginx
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/managed-by: ngf-nginx
+    ports:
+    - port: 80
+      protocol: TCP
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: admission
+    ports:
+    - port: 80
+      protocol: TCP
+
+---
+# 6. admission: receives traffic from admission-nginx and kubelet probe on :80.
+#    Egress: api-devices (gRPC :50051), register (HTTP :80), MongoDB Atlas (:27017).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-admission
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: admission
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: admission-nginx
+    - ipBlock:
+        cidr: {{ .Values.network.nodesCIDR }}
+    ports:
+    - port: 80
+      protocol: TCP
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: api-devices
+    ports:
+    - port: 50051
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app: register
+    ports:
+    - port: 80
+      protocol: TCP
+  # MongoDB Atlas (external)
+  - ports:
+    - port: 27017
+      protocol: TCP
+
+---
+# 7. api-devices: receives gRPC from api-server and admission on :50051.
+#    Kubelet gRPC health probe on :50051.
+#    Egress: mosquitto (MQTT :1883/:8883), MongoDB Atlas (:27017).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-api-devices
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: api-devices
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api-server
+    - podSelector:
+        matchLabels:
+          app: admission
+    - ipBlock:
+        cidr: {{ .Values.network.nodesCIDR }}
+    ports:
+    - port: 50051
+      protocol: TCP
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: mosquitto
+    ports:
+    - port: 1883
+      protocol: TCP
+    - port: 8883
+      protocol: TCP
+  # MongoDB Atlas (external)
+  - ports:
+    - port: 27017
+      protocol: TCP
+
+---
+# 8. register: receives HTTP from admission and api-server on :80.
+#    Kubelet health probe on :80.
+#    Egress: MongoDB Atlas (:27017).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-register
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: register
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: admission
+    - podSelector:
+        matchLabels:
+          app: api-server
+    - ipBlock:
+        cidr: {{ .Values.network.nodesCIDR }}
+    ports:
+    - port: 80
+      protocol: TCP
+  # MongoDB Atlas (external)
+  egress:
+  - ports:
+    - port: 27017
+      protocol: TCP
+
+---
+# 9. online: receives HTTP from api-server on :80 and kubelet probe on :80.
+#    Egress: redis (:6379).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-online
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: online
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api-server
+    - ipBlock:
+        cidr: {{ .Values.network.nodesCIDR }}
+    ports:
+    - port: 80
+      protocol: TCP
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - port: 6379
+      protocol: TCP
+
+---
+# 10. online-receiver: no service callers; kubelet health probe on :80.
+#     Egress: mosquitto (MQTT subscribe :1883/:8883), redis (:6379).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-online-receiver
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: online-receiver
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: {{ .Values.network.nodesCIDR }}
+    ports:
+    - port: 80
+      protocol: TCP
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: mosquitto
+    ports:
+    - port: 1883
+      protocol: TCP
+    - port: 8883
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - port: 6379
+      protocol: TCP
+
+---
+# 11. online-alarm: no service callers; kubelet health probe on :80.
+#     Egress: redis (:6379), FCM/Google (:443).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-online-alarm
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: online-alarm
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: {{ .Values.network.nodesCIDR }}
+    ports:
+    - port: 80
+      protocol: TCP
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - port: 6379
+      protocol: TCP
+  # Firebase Cloud Messaging (external HTTPS)
+  - ports:
+    - port: 443
+      protocol: TCP
+
+---
+# 12. producer: no inbound callers, no health probes.
+#     Egress: mosquitto (MQTT subscribe :1883/:8883), rabbitmq (AMQP :5672).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-producer
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: producer
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: mosquitto
+    ports:
+    - port: 1883
+      protocol: TCP
+    - port: 8883
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: rabbitmq
+    ports:
+    - port: 5672
+      protocol: TCP
+
+---
+# 13. consumer: no inbound callers, no health probes.
+#     Egress: rabbitmq (AMQP :5672), MongoDB Atlas (:27017).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-consumer
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: consumer
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: rabbitmq
+    ports:
+    - port: 5672
+      protocol: TCP
+  # MongoDB Atlas (external)
+  - ports:
+    - port: 27017
+      protocol: TCP
+
+---
+# 14. mosquitto: receives MQTT from NGF (ESP32 devices via TCPRoute) and from
+#     internal subscribers (api-devices, producer, online-receiver).
+#     No egress needed — it is a pure broker.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-mosquitto
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: mosquitto
+  policyTypes:
+  - Ingress
+  ingress:
+  # External MQTT/MQTTS clients (ESP32) routed through NGF TCPRoute
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/managed-by: ngf-nginx
+    ports:
+    - port: 1883
+      protocol: TCP
+    - port: 8883
+      protocol: TCP
+  # Internal services that connect to the broker
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api-devices
+    - podSelector:
+        matchLabels:
+          app: producer
+    - podSelector:
+        matchLabels:
+          app: online-receiver
+    ports:
+    - port: 1883
+      protocol: TCP
+    - port: 8883
+      protocol: TCP
+
+---
+# 15. redis: receives connections from online, online-receiver, online-alarm.
+#     No egress needed — it is a pure cache.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: online
+    - podSelector:
+        matchLabels:
+          app: online-receiver
+    - podSelector:
+        matchLabels:
+          app: online-alarm
+    ports:
+    - port: 6379
+      protocol: TCP
+
+---
+# 16. rabbitmq: receives AMQP from producer and consumer on :5672.
+#     RabbitMQ Operator (rabbitmq-system namespace) needs :5672/:15672 for management.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-rabbitmq
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: rabbitmq
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: producer
+    - podSelector:
+        matchLabels:
+          app: consumer
+    ports:
+    - port: 5672
+      protocol: TCP
+  # RabbitMQ Operator reconciliation loop (health checks + management API)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .Values.network.rabbitmqOperatorNamespace }}
+    ports:
+    - port: 5672
+      protocol: TCP
+    - port: 15672
+      protocol: TCP
+      protocol: TCP
+{{- end }}
