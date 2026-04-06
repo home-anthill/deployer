@@ -5,20 +5,20 @@ metadata:
   name: online-config
   namespace: {{ .Values.namespace }}
 data:
+  .env: |-
+    LOG_LEVEL=info
   Rocket.toml: |-
     [default]
 
     [default.databases.redis_pool]
-    url = "redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379"
-
-    [debug]
-    secret_key="{{ .Values.online.rocketSecretKey.debug }}"
-    port = 8089
+    url = "redis://{{ .Values.redis.username }}:{{ .Values.redis.password }}@{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379"
 
     [release]
     address = "0.0.0.0"
     port = 80
     secret_key="{{ .Values.online.rocketSecretKey.release }}"
+    limits = { json = "8 KiB" }
+    cli_colors = false
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -61,6 +61,10 @@ spec:
           containerPort: 80
           protocol: TCP
         volumeMounts:
+        - name: online-config
+          mountPath: /app/.env
+          subPath: .env
+          readOnly: true
         - name: online-config
           mountPath: /app/Rocket.toml
           subPath: Rocket.toml

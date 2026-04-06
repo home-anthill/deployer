@@ -9,6 +9,10 @@ data:
     dbfilename snapshot.rdb
     # save snapshot if 1 keys has ve been modified in 120 seconds
     save 120 1
+    protected-mode no
+    bind 0.0.0.0
+    user {{ .Values.redis.username }} on >{{ .Values.redis.password }} ~* +@all
+    user default off
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -25,27 +29,44 @@ spec:
       labels:
         app: redis
     spec:
+      {{- if .Values.dhi.enabled }}
+      imagePullSecrets:
+        - name: dhi-registry-secret
+      {{- end }}
+      {{- if .Values.dhi.enabled }}
+      securityContext:
+        fsGroup: 999 # 999 = the redis group in the hardened image
+        runAsUser: 999
+        runAsGroup: 999
+      {{- end }}
       containers:
       - name: redis
-        image: {{ .Values.redis.image }}
+        image: {{ if .Values.dhi.enabled }}{{ .Values.redis.hardenedImage }}{{ else }}{{ .Values.redis.image }}{{ end }}
         imagePullPolicy: Always
         readinessProbe:
           exec:
             command:
-            - sh
-            - -c
-            - redis-cli ping
+            - redis-cli
+            - --user
+            - {{ .Values.redis.username }}
+            - -a
+            - {{ .Values.redis.password }}
+            - --no-auth-warning
+            - ping
           periodSeconds: 5
         livenessProbe:
           exec:
             command:
-            - sh
-            - -c
-            - redis-cli ping
+            - redis-cli
+            - --user
+            - {{ .Values.redis.username }}
+            - -a
+            - {{ .Values.redis.password }}
+            - --no-auth-warning
+            - ping
           periodSeconds: 60
         # start redis with a custom redis.conf file
-        command: ["/bin/sh"]
-        args: ["-c", "redis-server /usr/local/etc/redis/redis.conf"]
+        command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
         ports:
         - name: "redis-port"
           containerPort: 6379

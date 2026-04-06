@@ -6,18 +6,18 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   .env: |-
+    LOG_LEVEL=info
     MONGO_URI={{ .Values.mongodbUrl }}
     MONGO_DB_NAME=sensors
   Rocket.toml: |-
     [default]
 
-    [debug]
-    secret_key="{{ .Values.register.rocketSecretKey.debug }}"
-
     [release]
     address = "0.0.0.0"
     port = 80
     secret_key="{{ .Values.register.rocketSecretKey.release }}"
+    limits = { json = "8 KiB" }
+    cli_colors = false
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -23,35 +23,53 @@ helm lint home-anthill/
 helm template -f home-anthill/values.yaml home-anthill home-anthill/ -s templates/<filename>.yaml
 ```
 
+## Cluster Prerequisites
+
+These components must be pre-installed on the K8s cluster before deploying this chart:
+
+| Component | Why required |
+|-----------|-------------|
+| NGINX Gateway Fabric (NGF) | Provides `Gateway`, `HTTPRoute`, `TCPRoute`, `ClientSettingsPolicy`, `SnippetsFilter` CRDs |
+| Gateway API CRDs (Experimental channel) | `TCPRoute` is in the experimental channel; must be installed before NGF |
+| cert-manager ≥ 1.15 with `enableGatewayAPI=true` | Issues Let's Encrypt TLS certs for HTTP and MQTT gateways |
+| MetalLB | Bare-metal load balancer; pins Gateways to public IPs via `IPAddressPool` + `L2Advertisement` |
+| RabbitMQ Kubernetes Operator | Required for `RabbitmqCluster`, `User`, `Permission` CRDs used in `rabbitmq.yaml` |
+
+**NGF install note**: `SnippetsFilter` is alpha — must be explicitly enabled:
+```bash
+helm install ngf ... --set nginxGateway.snippetsFilters.enable=true
+```
+
 ## Architecture
 
-The chart deploys ~15 services to a Kubernetes cluster, organized into these layers:
+The chart deploys ~20 resources to a Kubernetes cluster, organized into these layers:
 
 **Public Web / API tier**
-- `gui` — frontend web UI (served at domain root via Ingress)
+- `gui` — frontend web UI (served at domain root via Gateway)
 - `api-server` — main REST API with OAuth2, connects to MongoDB Atlas
-- `admission` — gRPC admission service, exposed at `/admission` via an NGINX sidecar proxy
+- `admission` — gRPC admission service exposed at `/admission`; uses a **dedicated NGINX sidecar** (`admission-nginx`) that proxies HTTP→gRPC, because the main Gateway routes HTTP traffic and cannot forward raw gRPC directly to the admission pod
 
 **Internal cluster API tier**
 - `api-devices` — gRPC service for IoT device management
-- `register` — Rust (Rocket) service for sensor registration
-- `online` / `online-receiver` / `online-alarm` — presence tracking and FCM push notifications
+- `register` — Rust/Rocket service for sensor registration (MongoDB)
+- `online` — Rust/Rocket service tracking device online status (Redis); exposes FCM token management
+- `online-receiver` — MQTT → Redis bridge; **no Service resource** (inbound only via MQTT)
+- `online-alarm` — polls Redis for offline devices, sends FCM push notifications
 
 **Messaging tier**
-- `rabbitmq` — AMQP message broker (v4.x)
-- `mosquitto` — MQTT broker for IoT devices (v2.x), with auth via ConfigMap
-- `producer` / `consumer` — services that publish/consume messages from RabbitMQ
+- `rabbitmq` — AMQP broker managed by RabbitMQ Operator (`RabbitmqCluster` CRD); 3 users: `admin` (full access), `producer` (write-only to `^ks89$` queue), `consumer` (read-only from `^ks89$` queue)
+- `mosquitto` — MQTT broker; when SSL is enabled, a **`k8s-config-reloader` sidecar** watches the TLS cert Secret and sends SIGHUP to Mosquitto on cert rotation
+- `producer` / `consumer` — RabbitMQ publish/consume services
 
 **Data tier**
-- `redis` — in-cluster cache with a PersistentVolume
-- MongoDB — external (Atlas Cloud), referenced by connection string in `values.yaml`
+- `redis` — in-cluster cache; `redis-pv.yaml` provisions a 2Gi `hostPath` PersistentVolume + PVC
+- MongoDB — external (Atlas Cloud), referenced by `values.mongodbUrl`
+- `mosquitto-pv.yaml` — 2Gi `hostPath` PersistentVolume + PVC for Mosquitto data
 
 **Infrastructure**
-- `gateway-webapp` — NGINX Gateway Fabric (Gateway API): `Gateway` + `HTTPRoute` for HTTP→HTTPS redirect and routing (`/admission` → admission NGINX sidecar, `/` → gui); `ClientSettingsPolicy` for request body size; `SnippetsFilter` for rate limiting; cert-manager `Issuer` + `Certificate` for Let's Encrypt TLS
-- `gateway-mqtt` — NGINX Gateway Fabric (Gateway API): `Gateway` + `TCPRoute` for raw TCP MQTT/MQTTS traffic; cert-manager `Issuer` + `Certificate` for Let's Encrypt TLS (HTTP-01 challenge via a dedicated HTTP listener); MetalLB annotation pins each gateway to its public IP
-- `metalb` — MetalLB bare-metal load balancer config
-- `namespace` — creates the target namespace
-- `k8s-config-reloader` — watches ConfigMaps/Secrets and reloads affected pods
+- `gateway-webapp.yaml` — `Gateway` + `HTTPRoute` (HTTP→HTTPS 301 redirect when SSL on) + `HTTPRoute` (routes `/admission` → admission-nginx-svc, `/` → gui-svc) + `ClientSettingsPolicy` (100 MiB max request body) + `SnippetsFilter` (100 req/s rate limit) + `Issuer` + `Certificate` for Let's Encrypt
+- `gateway-mqtt.yaml` — `Gateway` + `TCPRoute` for raw TCP MQTT/MQTTS; a separate HTTP listener exists solely for the Let's Encrypt HTTP-01 ACME challenge; explicit `Certificate` resource (not the cert-manager Gateway shim) to avoid duplicate `parentRef` errors
+- `metalb.yaml` — `IPAddressPool` + `L2Advertisement` pinning each Gateway to its public IP
 
 ## Key Files
 
@@ -59,15 +77,40 @@ The chart deploys ~15 services to a Kubernetes cluster, organized into these lay
 |------|---------|
 | `home-anthill/Chart.yaml` | Chart version and app version |
 | `home-anthill/values.yaml` | All configurable values: domain, image tags, auth mode, secrets |
-| `home-anthill/templates/*.yaml` | One file per service; most contain ConfigMap + Deployment + Service |
+| `home-anthill/templates/*.yaml` | One file per service (see notable patterns below) |
 | `.github/workflows/docker-image.yml` | CI: runs `helm template` to validate chart renders cleanly |
+| `MIGRATION.md` | Lessons learned migrating from nginx-ingress to Gateway API |
 
 ## Values Structure
 
-`values.yaml` controls:
-- **Domain** — base domain and public IPs for Gateway routes (HTTP and MQTT)
-- **Image tags** — each service has its own image and tag (all from `ghcr.io/home-anthill/`)
-- **Auth mode** — OAuth2 vs single-user (`api-server` ConfigMap)
-- **Secrets** — MongoDB URI, RabbitMQ credentials, JWT secrets, Firebase config (base64-encoded in templates)
-- **Resource limits** — CPU/memory per service
-- **Mosquitto auth** — username/password written into a ConfigMap
+`values.yaml` top-level keys:
+
+| Key | Purpose |
+|-----|---------|
+| `namespace` | Target K8s namespace (default: `home-anthill`) |
+| `domains.http` / `domains.mqtt` | Domain name, public IP, SSL enable flag for each gateway |
+| `letsencrypt` | ACME server URL (prod vs staging) |
+| `dhi` | DHI.io hardened image registry credentials (optional) |
+| `mosquitto` | Image, service name, data path, MQTT auth credentials |
+| `redis` | Image (standard + hardened variants), service name, data path, auth credentials |
+| `rabbitmq` | Image, admin/producer/consumer credentials, AMQP HMAC secret |
+| `mongodbUrl` | External MongoDB Atlas connection string |
+| `gui` / `apiServer` / `apiDevices` / `admission` / `register` / `producer` / `consumer` / `online` / `onlineReceiver` / `onlineAlarm` | Per-service image tag, service name, and service-specific secrets |
+| `apiServer` | Also: `singleUserLoginEmail`, JWT/cookie secrets, OAuth2 client IDs for web + Android app, `sensorsEnable` |
+| `onlineAlarm` | Also: `fcmServiceAccountKey` (full Firebase JSON, base64-encoded in Secret) |
+| `debug.pods.alwaysPullContainers` | Forces `imagePullPolicy: Always` on every pod |
+| `debug.pods.sleepInfinity` | Overrides container command with `sleep Infinity` for debugging (register, producer, consumer, online, online-receiver, online-alarm) |
+
+All service images are pulled from Docker Hub (`ks89/<service>:<tag>`).
+
+## Notable Template Patterns
+
+**MQTT TLS init container** — `api-devices.yaml`, `producer.yaml`, `online-receiver.yaml`: when `domains.mqtt.ssl=true`, an init container (`alpine`) copies the cluster TLS cert into a shared `emptyDir` volume before the main container starts.
+
+**Rocket.toml as ConfigMap** — `register.yaml`, `online.yaml`, `online-alarm.yaml`: Rocket framework config (port, address, `secret_key`, database pool URL) is mounted as a ConfigMap subPath at `/app/Rocket.toml`. The `secret_key` comes from `values.yaml` and must be a base64-encoded 256-bit key (`openssl rand -base64 32`).
+
+**RabbitMQ Operator CRDs** — `rabbitmq.yaml` uses `RabbitmqCluster` (not a Deployment), plus `User` and `Permission` resources. The `Permission` resources enforce queue-level ACLs: producer can only write to `^ks89$`, consumer can only read from `^ks89$`.
+
+**cert-manager for MQTT** — `gateway-mqtt.yaml` uses an explicit `Certificate` resource (not the cert-manager Gateway shim) because the MQTT Gateway has no TLS listener (Mosquitto handles TLS termination itself); the explicit cert avoids the Gateway shim trying to add a conflicting `parentRef`.
+
+**Admission NGINX sidecar** — `admission.yaml` defines two Deployments: the Go gRPC service and an NGINX sidecar. The sidecar translates the HTTP requests arriving from the Gateway into gRPC calls to the main container on port 50051.

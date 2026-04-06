@@ -6,6 +6,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   .env: |-
+    LOG_FOLDER=./logs/
     MONGODB_URL={{ .Values.mongodbUrl }}
     HTTP_SERVER=http://{{ .Values.domains.http.name }}
     HTTP_PORT=80
@@ -133,9 +134,13 @@ spec:
       labels:
         app: admission-nginx
     spec:
+      {{- if .Values.dhi.enabled }}
+      imagePullSecrets:
+        - name: dhi-registry-secret
+      {{- end }}
       containers:
       - name: admission-nginx
-        image: {{ .Values.admission.nginxImage }}
+        image: {{ if .Values.dhi.enabled }}{{ .Values.nginx.hardenedImage }}{{ else }}{{ .Values.nginx.image }}{{ end }}
         ports:
           # always enabled to redirect to https
           - name: http

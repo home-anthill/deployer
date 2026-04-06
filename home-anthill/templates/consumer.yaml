@@ -6,9 +6,11 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   .env: |-
+    LOG_LEVEL=info
     MONGO_URI={{ .Values.mongodbUrl }}
     MONGO_DB_NAME=sensors
-    AMQP_URI=amqp://{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}@rabbitmq.{{ .Values.namespace }}.svc.cluster.local:5672
+    AMQP_URI=amqp://{{ .Values.rabbitmq.consumer.user }}:{{ .Values.rabbitmq.consumer.password }}@rabbitmq.{{ .Values.namespace }}.svc.cluster.local:5672
+    AMQP_HMAC_SECRET={{ .Values.rabbitmq.amqpHmacSecret }}
     AMQP_QUEUE_NAME=ks89
     AMQP_CONSUMER_TAG=consumer
 ---

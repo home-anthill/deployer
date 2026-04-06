@@ -6,6 +6,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   .env: |-
+    LOG_FOLDER=./logs/
     MONGODB_URL={{ .Values.mongodbUrl }}
     HTTP_SERVER=http://{{ .Values.domains.http.name }}
     HTTP_PORT=80
@@ -35,6 +36,7 @@ data:
     SINGLE_USER_LOGIN_EMAIL=
     {{ end }}
     JWT_PASSWORD={{ .Values.apiServer.jwtPassword }}
+    JWT_REFRESH_PASSWORD={{ .Values.apiServer.jwtRefreshPassword }}
     COOKIE_SECRET={{ .Values.apiServer.cookieSecret }}
     INTERNAL_CLUSTER_PATH={{ .Values.apiServer.serviceName }}.{{ .Values.namespace }}.svc.cluster.local
 ---

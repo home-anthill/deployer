@@ -6,16 +6,15 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   .env: |-
+    LOG_LEVEL=debug
     REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379
+    REDIS_USERNAME={{ .Values.redis.username }}
+    REDIS_PASSWORD={{ .Values.redis.password }}
     CACHE_TIMEOUT_SECONDS=120
     OFFLINE_TIMEOUT_SECONDS=60
-    HIDE_ROCKET_LOG_STDOUT=true
+    FCM_SERVICE_ACCOUNT_KEY_PATH=./serviceAccountKey.json
   Rocket.toml: |-
     [default]
-
-    [debug]
-    secret_key="{{ .Values.onlineAlarm.rocketSecretKey.debug }}"
-    port = 8088
 
     [release]
     address = "0.0.0.0"

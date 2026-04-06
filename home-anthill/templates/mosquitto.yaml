@@ -31,7 +31,7 @@ data:
     {{- end }}
 
     {{- if .Values.mosquitto.auth.enable }}
-    password_file /etc/mosquitto/password_file
+    password_file /mosquitto/passwd/password_file
     {{- end }}
 ---
 apiVersion: apps/v1
@@ -115,6 +115,8 @@ spec:
             mountPath: /mosquitto/config/mosquitto.conf
             subPath: mosquitto.conf
             readOnly: true
+          - name: passwd
+            mountPath: /mosquitto/passwd
           {{- if .Values.domains.mqtt.ssl.enable }}
           - name: certmqtt
             mountPath: /etc/mosquitto/certs/
@@ -152,6 +154,8 @@ spec:
         - name: mosquitto-config
           configMap:
             name: mosquitto-config
+        - name: passwd
+          emptyDir: {}
         {{- if .Values.domains.mqtt.ssl.enable }}
         - name: certmqtt
           secret:

@@ -45,4 +45,77 @@ spec:
     read: ".*"
   rabbitmqClusterReference:
     name: rabbitmq
-
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rabbitmq-producer-secret
+  namespace: {{ .Values.namespace }}
+type: Opaque
+stringData:
+  username: {{ .Values.rabbitmq.producer.user }}
+  password: {{ .Values.rabbitmq.producer.password }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: User
+metadata:
+  name: rabbitmq-producer-user
+  namespace: {{ .Values.namespace }}
+spec:
+  tags: []
+  rabbitmqClusterReference:
+    name: rabbitmq
+  importCredentialsSecret:
+    name: rabbitmq-producer-secret
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Permission
+metadata:
+  name: rabbitmq-producer-permission
+  namespace: {{ .Values.namespace }}
+spec:
+  vhost: "/"
+  user: "{{ .Values.rabbitmq.producer.user }}"
+  permissions:
+    write: "^ks89$"
+    configure: "^ks89$"
+    read: ""
+  rabbitmqClusterReference:
+    name: rabbitmq
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rabbitmq-consumer-secret
+  namespace: {{ .Values.namespace }}
+type: Opaque
+stringData:
+  username: {{ .Values.rabbitmq.consumer.user }}
+  password: {{ .Values.rabbitmq.consumer.password }}
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: User
+metadata:
+  name: rabbitmq-consumer-user
+  namespace: {{ .Values.namespace }}
+spec:
+  tags: []
+  rabbitmqClusterReference:
+    name: rabbitmq
+  importCredentialsSecret:
+    name: rabbitmq-consumer-secret
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Permission
+metadata:
+  name: rabbitmq-consumer-permission
+  namespace: {{ .Values.namespace }}
+spec:
+  vhost: "/"
+  user: "{{ .Values.rabbitmq.consumer.user }}"
+  permissions:
+    write: ""
+    configure: "^ks89$"
+    read: "^ks89$"
+  rabbitmqClusterReference:
+    name: rabbitmq

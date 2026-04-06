@@ -6,7 +6,10 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   .env: |-
+    LOG_LEVEL=info
     REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379
+    REDIS_USERNAME={{ .Values.redis.username }}
+    REDIS_PASSWORD={{ .Values.redis.password }}
     {{- if .Values.domains.mqtt.ssl.enable }}
     MQTT_URL={{ .Values.domains.mqtt.name }}
     MQTT_PORT=8883
@@ -52,10 +55,14 @@ spec:
       labels:
         app: online-receiver
     spec:
+      {{- if .Values.dhi.enabled }}
+      imagePullSecrets:
+        - name: dhi-registry-secret
+      {{- end }}
       {{- if .Values.domains.mqtt.ssl.enable }}
       initContainers:
         - name: init-certs
-          image: alpine
+          image: {{ if .Values.dhi.enabled }}{{ .Values.alpine.hardenedImage }}{{ else }}{{ .Values.alpine.image }}{{ end }}
           command: 
             - "/bin/sh"
             - "-c"

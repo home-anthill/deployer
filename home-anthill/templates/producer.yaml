@@ -6,7 +6,9 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   .env: |-
-    AMQP_URI=amqp://{{ .Values.rabbitmq.user }}:{{ .Values.rabbitmq.password }}@rabbitmq.{{ .Values.namespace }}.svc.cluster.local:5672
+    LOG_LEVEL=info
+    AMQP_URI=amqp://{{ .Values.rabbitmq.producer.user }}:{{ .Values.rabbitmq.producer.password }}@rabbitmq.{{ .Values.namespace }}.svc.cluster.local:5672
+    AMQP_HMAC_SECRET={{ .Values.rabbitmq.amqpHmacSecret }}
     AMQP_QUEUE_NAME=ks89
     {{- if .Values.domains.mqtt.ssl.enable }}
     MQTT_URL={{ .Values.domains.mqtt.name }}
@@ -53,10 +55,14 @@ spec:
       labels:
         app: producer
     spec:
+      {{- if .Values.dhi.enabled }}
+      imagePullSecrets:
+        - name: dhi-registry-secret
+      {{- end }}
       {{- if .Values.domains.mqtt.ssl.enable }}
       initContainers:
         - name: init-certs
-          image: alpine
+          image: {{ if .Values.dhi.enabled }}{{ .Values.alpine.hardenedImage }}{{ else }}{{ .Values.alpine.image }}{{ end }}
           command: 
             - "/bin/sh"
             - "-c"
