@@ -32,7 +32,7 @@ These components must be pre-installed on the K8s cluster before deploying this 
 | NGINX Gateway Fabric (NGF) | Provides `Gateway`, `HTTPRoute`, `TCPRoute`, `ClientSettingsPolicy`, `SnippetsFilter` CRDs |
 | Gateway API CRDs (Experimental channel) | `TCPRoute` is in the experimental channel; must be installed before NGF |
 | cert-manager ≥ 1.15 with `enableGatewayAPI=true` | Issues Let's Encrypt TLS certs for HTTP and MQTT gateways |
-| MetalLB | Bare-metal load balancer; pins Gateways to public IPs via `IPAddressPool` + `L2Advertisement` |
+| Cilium (with L2 announcements enabled) | Bare-metal load balancer; assigns public IPs via `CiliumLoadBalancerIPPool` + `CiliumL2AnnouncementPolicy` |
 | RabbitMQ Kubernetes Operator | Required for `RabbitmqCluster`, `User`, `Permission` CRDs used in `rabbitmq.yaml` |
 
 **NGF install note**: `SnippetsFilter` is alpha — must be explicitly enabled:
@@ -69,7 +69,8 @@ The chart deploys ~20 resources to a Kubernetes cluster, organized into these la
 **Infrastructure**
 - `gateway-webapp.yaml` — `Gateway` + `HTTPRoute` (HTTP→HTTPS 301 redirect when SSL on) + `HTTPRoute` (routes `/admission` → admission-nginx-svc, `/` → gui-svc) + `ClientSettingsPolicy` (100 MiB max request body) + `SnippetsFilter` (100 req/s rate limit) + `Issuer` + `Certificate` for Let's Encrypt
 - `gateway-mqtt.yaml` — `Gateway` + `TCPRoute` for raw TCP MQTT/MQTTS; a separate HTTP listener exists solely for the Let's Encrypt HTTP-01 ACME challenge; explicit `Certificate` resource (not the cert-manager Gateway shim) to avoid duplicate `parentRef` errors
-- `metalb.yaml` — `IPAddressPool` + `L2Advertisement` pinning each Gateway to its public IP
+- `cilium.yaml` — `CiliumLoadBalancerIPPool` (assigns public IPs from a `/32` block per gateway) + `CiliumL2AnnouncementPolicy` (ARP broadcasts on `eth0` for LoadBalancer IPs); replaces the MetalLB approach
+- `network-policy.yaml` — 17–18 `NetworkPolicy` resources implementing default-deny-all with explicit per-service allow rules; controlled by `network.enabled`; see `NETWORK_POLICIES.md` for the full communication matrix and design rationale
 
 ## Key Files
 
@@ -80,6 +81,7 @@ The chart deploys ~20 resources to a Kubernetes cluster, organized into these la
 | `home-anthill/templates/*.yaml` | One file per service (see notable patterns below) |
 | `.github/workflows/docker-image.yml` | CI: runs `helm template` to validate chart renders cleanly |
 | `MIGRATION.md` | Lessons learned migrating from nginx-ingress to Gateway API |
+| `NETWORK_POLICIES.md` | Full communication matrix, per-policy rationale, cert renewal flows, kubelet probe table |
 
 ## Values Structure
 
@@ -98,6 +100,11 @@ The chart deploys ~20 resources to a Kubernetes cluster, organized into these la
 | `gui` / `apiServer` / `apiDevices` / `admission` / `register` / `producer` / `consumer` / `online` / `onlineReceiver` / `onlineAlarm` | Per-service image tag, service name, and service-specific secrets |
 | `apiServer` | Also: `singleUserLoginEmail`, JWT/cookie secrets, OAuth2 client IDs for web + Android app, `sensorsEnable` |
 | `onlineAlarm` | Also: `fcmServiceAccountKey` (full Firebase JSON, base64-encoded in Secret) |
+| `serviceAccounts.enabled` | Creates `ServiceAccount` resources and binds them to pods when `true` (default: `false`) |
+| `network.enabled` | Deploys all `NetworkPolicy` resources (default: `true`; set `false` for dev/test clusters) |
+| `network.nodesCIDR` | CIDR for kubelet health-probe traffic (default: `10.0.0.0/8`; restrict in production) |
+| `network.rabbitmqOperatorNamespace` | Namespace of the RabbitMQ Operator (used in cross-namespace NetworkPolicy) |
+| `alpine` / `nginx` / `k8sConfigReloader` | Shared utility images with resource limits |
 | `debug.pods.alwaysPullContainers` | Forces `imagePullPolicy: Always` on every pod |
 | `debug.pods.sleepInfinity` | Overrides container command with `sleep Infinity` for debugging (register, producer, consumer, online, online-receiver, online-alarm) |
 

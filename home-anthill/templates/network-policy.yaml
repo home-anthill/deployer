@@ -16,13 +16,13 @@
 #   api-server       → online       :80     (HTTP online status / FCM token)
 #   api-server       → MongoDB Atlas         (external :27017)
 #   api-server       → GitHub OAuth2         (external :443)
-#   api-devices      → mosquitto    :1883/8883 (MQTT publish to devices)
+#   api-devices      → mosquitto    :1883      (MQTT publish to devices, internal service)
 #   api-devices      → MongoDB Atlas          (external :27017)
-#   producer         → mosquitto    :1883/8883 (MQTT subscribe sensor topics)
+#   producer         → mosquitto    :1883      (MQTT subscribe sensor topics, internal service)
 #   producer         → rabbitmq     :5672   (AMQP publish)
 #   consumer         → rabbitmq     :5672   (AMQP consume)
 #   consumer         → MongoDB Atlas          (external :27017)
-#   online-receiver  → mosquitto    :1883/8883 (MQTT subscribe online topics)
+#   online-receiver  → mosquitto    :1883      (MQTT subscribe online topics, internal service)
 #   online-receiver  → redis        :6379
 #   online           → redis        :6379
 #   online-alarm     → redis        :6379
@@ -33,8 +33,9 @@
 #   Kubelet → api-devices health probe     :50051 (nodesCIDR)
 #   All pods → kube-dns :53 UDP/TCP
 #
+#   NGF data-plane → NGF controller :8443 (gRPC control-plane; svc port 443 → targetPort 8443)
 #   (SSL only) NGF → cert-manager solver :8089 (ACME HTTP-01 challenge)
-#   (SSL only) api-devices/producer/online-receiver → MQTT public IP :8883
+#   (SSL only) cert-manager → NGF data-plane :80 (ACME self-check; requires namespaceSelector, not ipBlock)
 
 ---
 # 1. Default: deny all ingress and egress within the namespace.
@@ -98,7 +99,29 @@ spec:
       protocol: TCP
     - port: 8883
       protocol: TCP
+  {{- if or .Values.domains.http.ssl.enable .Values.domains.mqtt.ssl.enable }}
+  # cert-manager self-check: before submitting to Let's Encrypt, cert-manager makes an
+  # in-cluster HTTP GET to verify ACME HTTP-01 challenge propagation. This traffic comes
+  # from a cert-manager pod, so it carries a Cilium identity. ipBlock: 0.0.0.0/0 does NOT
+  # match Cilium endpoint (pod) traffic — a namespaceSelector is required.
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: cert-manager
+    ports:
+    - port: 80
+      protocol: TCP
+  {{- end }}
   egress:
+  # NGF controller gRPC channel — nginx agent connects to ngf-nginx-gateway-fabric.nginx-gateway.svc:443
+  # which maps to targetPort 8443 on the controller pod; NetworkPolicy matches the target port post-DNAT.
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: nginx-gateway
+    ports:
+    - port: 8443
+      protocol: TCP
   - to:
     - podSelector:
         matchLabels:
@@ -304,8 +327,7 @@ spec:
 ---
 # 8. api-devices: receives gRPC from api-server and admission on :50051.
 #    Kubelet gRPC health probe on :50051.
-#    Egress: mosquitto (MQTT :1883/:8883), MongoDB Atlas (:27017).
-#    When MQTT SSL is enabled, connects via external MQTT domain instead of internal service.
+#    Egress: mosquitto (MQTT :1883, internal service), MongoDB Atlas (:27017).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -345,15 +367,6 @@ spec:
   - ports:
     - port: 27017
       protocol: TCP
-  {{- if .Values.domains.mqtt.ssl.enable }}
-  # MQTT via external domain when SSL is enabled
-  - to:
-    - ipBlock:
-        cidr: {{ .Values.domains.mqtt.publicIp }}/32
-    ports:
-    - port: 8883
-      protocol: TCP
-  {{- end }}
 
 ---
 # 9. register: receives HTTP from admission and api-server on :80.
@@ -426,8 +439,7 @@ spec:
 
 ---
 # 11. online-receiver: no service callers; kubelet health probe on :80.
-#     Egress: mosquitto (MQTT subscribe :1883/:8883), redis (:6379).
-#     When MQTT SSL is enabled, connects via external MQTT domain instead of internal service.
+#     Egress: mosquitto (MQTT subscribe :1883, internal service), redis (:6379).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -464,15 +476,6 @@ spec:
     ports:
     - port: 6379
       protocol: TCP
-  {{- if .Values.domains.mqtt.ssl.enable }}
-  # MQTT via external domain when SSL is enabled
-  - to:
-    - ipBlock:
-        cidr: {{ .Values.domains.mqtt.publicIp }}/32
-    ports:
-    - port: 8883
-      protocol: TCP
-  {{- end }}
 
 ---
 # 12. online-alarm: no service callers; kubelet health probe on :80.
@@ -511,8 +514,7 @@ spec:
 
 ---
 # 13. producer: no inbound callers, no health probes.
-#     Egress: mosquitto (MQTT subscribe :1883/:8883), rabbitmq (AMQP :5672).
-#     When MQTT SSL is enabled, connects via external MQTT domain instead of internal service.
+#     Egress: mosquitto (MQTT subscribe :1883, internal service), rabbitmq (AMQP :5672).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -541,15 +543,6 @@ spec:
     ports:
     - port: 5672
       protocol: TCP
-  {{- if .Values.domains.mqtt.ssl.enable }}
-  # MQTT via external domain when SSL is enabled
-  - to:
-    - ipBlock:
-        cidr: {{ .Values.domains.mqtt.publicIp }}/32
-    ports:
-    - port: 8883
-      protocol: TCP
-  {{- end }}
 
 ---
 # 14. consumer: no inbound callers, no health probes.

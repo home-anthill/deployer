@@ -1,0 +1,21 @@
+# Cilium LB-IPAM: assigns specific public IPs to LoadBalancer Services from this pool.
+apiVersion: "cilium.io/v2"
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: public-ip-pool
+spec:
+  blocks:
+  - cidr: {{ .Values.domains.http.publicIp }}/32
+  - cidr: {{ .Values.domains.mqtt.publicIp }}/32
+---
+# Cilium L2 Announcements: broadcasts ARP for LoadBalancer IPs on the node's primary interface.
+# Cilium owns both the eBPF datapath and the IP announcement, in-cluster pods can reach LoadBalancer IPs 
+# without hairpin NAT issues.
+apiVersion: "cilium.io/v2alpha1"
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: l2-announcement-policy
+spec:
+  loadBalancerIPs: true
+  interfaces:
+  - eth0

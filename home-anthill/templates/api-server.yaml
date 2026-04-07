@@ -47,6 +47,8 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: api-server

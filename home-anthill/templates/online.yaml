@@ -7,12 +7,11 @@ metadata:
 data:
   .env: |-
     LOG_LEVEL=info
-    REDIS_URI=redis://{{ .Values.redis.username }}:{{ .Values.redis.password }}@{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379
+    REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379
+    REDIS_USERNAME={{ .Values.redis.username }}
+    REDIS_PASSWORD={{ .Values.redis.password }}
   Rocket.toml: |-
     [default]
-
-    [default.databases.redis_pool]
-    url = "redis://{{ .Values.redis.username }}:{{ .Values.redis.password }}@{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379"
 
     [release]
     address = "0.0.0.0"
@@ -28,6 +27,8 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: online

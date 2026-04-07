@@ -13,7 +13,7 @@ spec:
   # allowing MetalLB to assign the specific public IP.
   infrastructure:
     annotations:
-      metallb.universe.tf/loadBalancerIPs: {{ .Values.domains.http.publicIp | quote }}
+      io.cilium/lb-ipam-ips: {{ .Values.domains.http.publicIp | quote }}
   listeners:
   - name: http
     port: 80

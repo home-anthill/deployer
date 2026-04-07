@@ -14,7 +14,14 @@ kind: RabbitmqCluster
 metadata:
   name: rabbitmq
   namespace: {{ .Values.namespace }}
-spec: {}
+spec:
+  resources:
+    requests:
+      cpu: {{ .Values.rabbitmq.resources.requests.cpu | quote }}
+      memory: {{ .Values.rabbitmq.resources.requests.memory | quote }}
+    limits:
+      cpu: {{ .Values.rabbitmq.resources.limits.cpu | quote }}
+      memory: {{ .Values.rabbitmq.resources.limits.memory | quote }}
 ---
 apiVersion: rabbitmq.com/v1beta1
 kind: User

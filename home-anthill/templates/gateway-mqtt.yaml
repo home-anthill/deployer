@@ -20,7 +20,7 @@ spec:
   # allowing MetalLB to assign the specific public IP.
   infrastructure:
     annotations:
-      metallb.universe.tf/loadBalancerIPs: {{ .Values.domains.mqtt.publicIp | quote }}
+      io.cilium/lb-ipam-ips: {{ .Values.domains.mqtt.publicIp | quote }}
   listeners:
   {{- if .Values.domains.mqtt.ssl.enable }}
   # HTTP listener required only for the Let's Encrypt http01 ACME challenge.

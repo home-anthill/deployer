@@ -8,25 +8,23 @@ data:
   mosquitto.conf: |-
     persistence true
     persistence_location /mosquitto/data
-    allow_anonymous true
+    allow_anonymous {{ if .Values.mosquitto.auth.enable }}false{{ else }}true{{ end }}
     connection_messages true
     log_type all
 
     {{- if .Values.domains.mqtt.ssl.enable }}
-    # secure connection are available externally
+    # Internal listener (plain TCP) for in-cluster services — avoids hairpin routing
+    listener 1883
+    # External listener (TLS) for IoT devices (ESP32) routed via Gateway
     listener 8883
-    # taken from https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-the-mosquitto-mqtt-messaging-broker-on-ubuntu-18-04
     # I need to copy let's encrypt files to another destination to be able
     # to set right owner and permissions
     certfile /etc/mosquitto/certs/tls.crt
     {{- if eq "prod" .Values.letsencrypt.server.env  }}
     cafile /etc/ssl/certs/ca-certificates.crt
-    {{- else }}
-    cafile /etc/tls/cert-issuer-mqtt/tls.crt
     {{- end }}
     keyfile /etc/mosquitto/certs/tls.key
     {{- else }}
-    # insecure connections via 1883 disabled
     listener 1883
     {{- end }}
 
@@ -41,6 +39,8 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: mosquitto
@@ -53,10 +53,36 @@ spec:
       serviceAccountName: mosquitto
       automountServiceAccountToken: false
       {{- end }}
+      {{- if .Values.dhi.enabled }}
+      imagePullSecrets:
+        - name: dhi-registry-secret
+      {{- end }}
       securityContext:
         # The owner for volumes and any files created in that volume will be Group ID 1883 (mosquitto)
         fsGroup: 1883
       shareProcessNamespace: true # to be able to restart mosquitto via k8s-config-reloader
+      {{- if .Values.domains.mqtt.ssl.enable }}
+      initContainers:
+      - name: wait-for-cert
+        image: {{ if .Values.dhi.enabled }}{{ .Values.alpine.hardenedImage }}{{ else }}{{ .Values.alpine.image }}{{ end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.alpine.resources | nindent 10 }}
+        command:
+          - "/bin/sh"
+          - "-c"
+          - |
+            until [ -f /etc/mosquitto/certs/tls.crt ] && [ -f /etc/mosquitto/certs/tls.key ]; do
+              echo "Waiting for mqtt-tls secret to be issued by cert-manager..."; sleep 5
+            done
+            echo "TLS cert found, starting Mosquitto."
+        volumeMounts:
+          - name: certmqtt
+            mountPath: /etc/mosquitto/certs/
+      {{- end }}
       containers:
       - name: mosquitto
         image: {{ .Values.mosquitto.image }}
@@ -74,7 +100,7 @@ spec:
             - -h
             - localhost
             - -p
-            - "{{ .Values.domains.mqtt.ssl.enable | ternary 8883 1883 }}"
+            - "1883"
             - -u
             - "{{ .Values.mosquitto.auth.username }}"
             - -P
@@ -83,7 +109,6 @@ spec:
             - "readiness_probe"
             - -t
             - readiness
-            - --insecure
           periodSeconds: 10
         livenessProbe:
           exec:
@@ -92,7 +117,7 @@ spec:
             - -h
             - localhost
             - -p
-            - "{{ .Values.domains.mqtt.ssl.enable | ternary 8883 1883 }}"
+            - "1883"
             - -u
             - "{{ .Values.mosquitto.auth.username }}"
             - -P
@@ -101,7 +126,6 @@ spec:
             - "readiness_probe"
             - -t
             - readiness
-            - --insecure
           periodSeconds: 60
         env:
         {{ if .Values.domains.mqtt.ssl.enable }}
@@ -115,9 +139,18 @@ spec:
           value: {{ .Values.mosquitto.auth.password }}
         {{- end }}
         ports:
-        - name: {{ .Values.domains.mqtt.ssl.enable | ternary "mqtts" "mqtt" }}
-          containerPort: {{ .Values.domains.mqtt.ssl.enable | ternary 8883 1883 }}
+        {{- if .Values.domains.mqtt.ssl.enable }}
+        - name: mqtt
+          containerPort: 1883
           protocol: TCP
+        - name: mqtts
+          containerPort: 8883
+          protocol: TCP
+        {{- else }}
+        - name: mqtt
+          containerPort: 1883
+          protocol: TCP
+        {{- end }}
         volumeMounts:
           - name: data
             mountPath: "/mosquitto/data"
@@ -136,8 +169,7 @@ spec:
         image: {{ .Values.k8sConfigReloader.image }}
         env:
           - name: CONFIG_DIR
-            value: >-
-              /etc/mosquitto/certs/tls.key,/etc/mosquitto/certs/tls.crt
+            value: /etc/mosquitto/certs/
           - name: PROCESS_NAME
             value: mosquitto
         resources:
@@ -173,6 +205,7 @@ spec:
           secret:
             secretName: mqtt-tls
             defaultMode: 0600
+            optional: true
         {{- end }}
 ---
 kind: Service
@@ -185,13 +218,15 @@ spec:
     app: mosquitto
   ports:
     {{- if .Values.domains.mqtt.ssl.enable }}
-    # expose mqtts port
+    - name: mqtt
+      protocol: TCP
+      port: 1883
+      targetPort: mqtt
     - name: mqtts
       protocol: TCP
       port: 8883
       targetPort: mqtts
     {{- else }}
-    # expose mqtt port
     - name: mqtt
       protocol: TCP
       port: 1883

@@ -29,17 +29,17 @@ The chart deploys 17 policies with SSL disabled, or 18 when SSL is enabled.
 |---|------------|-------------|-------------|----------|
 | 1 | `default-deny-all` | all pods | deny all | deny all |
 | 2 | `allow-dns-egress` | all pods | — | any:53 UDP/TCP |
-| 3 | `allow-ngf-dataplane` | `app.kubernetes.io/managed-by: ngf-nginx` | 0.0.0.0/0 on 80,443,1883,8883 | gui:80, admission-nginx:80, mosquitto:1883/8883, (SSL: solver:8089) |
+| 3 | `allow-ngf-dataplane` | `app.kubernetes.io/managed-by: ngf-nginx` | 0.0.0.0/0 on 80,443,1883,8883; (SSL) cert-manager ns on 80 | NGF controller:8443, gui:80, admission-nginx:80, mosquitto:1883/8883, (SSL: solver:8089) |
 | 4 | `allow-gui` | `app: gui` | NGF + kubelet on 80 | api-server:80 |
 | 5 | `allow-api-server` | `app: api-server` | gui + kubelet on 80 | api-devices:50051, register:80, online:80, ext:27017, ext:443 |
 | 6 | `allow-admission-nginx` | `app: admission-nginx` | NGF + kubelet on 80 | admission:80 |
 | 7 | `allow-admission` | `app: admission` | admission-nginx + kubelet on 80 | api-devices:50051, register:80, ext:27017 |
-| 8 | `allow-api-devices` | `app: api-devices` | api-server + admission + kubelet on 50051 | mosquitto:1883/8883, ext:27017, (SSL: mqttIP:8883) |
+| 8 | `allow-api-devices` | `app: api-devices` | api-server + admission + kubelet on 50051 | mosquitto:1883, ext:27017 |
 | 9 | `allow-register` | `app: register` | admission + api-server + kubelet on 80 | ext:27017 |
 | 10 | `allow-online` | `app: online` | api-server + kubelet on 80 | redis:6379 |
-| 11 | `allow-online-receiver` | `app: online-receiver` | kubelet on 80 | mosquitto:1883/8883, redis:6379, (SSL: mqttIP:8883) |
+| 11 | `allow-online-receiver` | `app: online-receiver` | kubelet on 80 | mosquitto:1883, redis:6379 |
 | 12 | `allow-online-alarm` | `app: online-alarm` | kubelet on 80 | redis:6379, ext:443 |
-| 13 | `allow-producer` | `app: producer` | none | mosquitto:1883/8883, rabbitmq:5672, (SSL: mqttIP:8883) |
+| 13 | `allow-producer` | `app: producer` | none | mosquitto:1883, rabbitmq:5672 |
 | 14 | `allow-consumer` | `app: consumer` | none | rabbitmq:5672, ext:27017 |
 | 15 | `allow-mosquitto` | `app: mosquitto` | NGF + api-devices + producer + online-receiver on 1883/8883 | none |
 | 16 | `allow-redis` | `app: redis` | online + online-receiver + online-alarm on 6379 | none |
@@ -56,14 +56,14 @@ The chart deploys 17 policies with SSL disabled, or 18 when SSL is enabled.
                    │    │  │ webapp-gateway   │────▶│ gui │────▶│ api-server │          │
                    ▼    │  │ (NGF dataplane)  │     └─────┘     └──────┬─────┘          │
               ┌────────┐│  │                  │          :80       :80 │                │
-              │MetalLB ├┼─▶│  :80 / :443      │                       │                │
+              │CiliumL2├┼─▶│  :80 / :443      │                       │                │
               └────────┘│  │                  │     ┌─────────────┐    │:50051   :80    │
                    ▲    │  │                  │────▶│ admission   │◀───┼───────┐        │
   ESP32 ───────────┘    │  │                  │     │   -nginx    │    │       │        │
                    │    │  └─────────────────┘     └──────┬──────┘    │       │        │
                    ▼    │                              :80│           │       │        │
               ┌────────┐│  ┌─────────────────┐     ┌─────▼─────┐     │       │        │
-              │MetalLB ├┼─▶│ mqtt-gateway    │     │ admission │─────┼───────┤        │
+              │CiliumL2├┼─▶│ mqtt-gateway    │     │ admission │─────┼───────┤        │
               └────────┘│  │ (NGF dataplane) │     └─────┬─────┘     │       │        │
                         │  │                 │       :80  │:50051     │       │        │
                         │  │  :1883 / :8883  │           │           ▼       ▼        │
@@ -131,7 +131,9 @@ Allows all pods to reach any destination on port 53 (UDP and TCP) for DNS resolu
 NGINX Gateway Fabric deploys data-plane nginx pods in the `home-anthill` namespace (one per Gateway resource: `webapp-gateway-nginx` and `mqtt-gateway-nginx`). These pods are covered by `default-deny-all` and need explicit rules.
 
 - **Ingress**: Accepts traffic from the internet (`0.0.0.0/0`) on ports 80 (HTTP), 443 (HTTPS), 1883 (MQTT), and 8883 (MQTTS).
-- **Egress**: Can only reach the three direct backend pods — `gui:80`, `admission-nginx:80`, and `mosquitto:1883/8883`. Note that `api-server` is NOT a direct NGF backend; traffic reaches it through the gui nginx proxy (`NGF → gui → api-server`).
+- **Ingress from cert-manager** (SSL only): An additional ingress rule explicitly allows traffic from the `cert-manager` namespace on port 80. This is required by Cilium's identity model: `ipBlock: 0.0.0.0/0` only matches non-pod (external) traffic. Pod-to-pod traffic carries a Cilium identity, so cert-manager's in-cluster ACME self-check must be matched via `namespaceSelector`, not `ipBlock`.
+- **Egress to NGF controller**: The nginx agent inside each data-plane pod must connect back to the NGF controller (`ngf-nginx-gateway-fabric.nginx-gateway.svc`) via gRPC to receive its routing configuration. The service exposes port 443 (named `agent-grpc`) which maps to **targetPort 8443** on the controller pod. Because Kubernetes NetworkPolicy evaluates egress against the post-DNAT target port, the egress rule must use port **8443** (not 443), scoped to the `nginx-gateway` namespace via `namespaceSelector`.
+- **Egress to backends**: Can only reach the three direct backend pods — `gui:80`, `admission-nginx:80`, and `mosquitto:1883/8883`. Note that `api-server` is NOT a direct NGF backend; traffic reaches it through the gui nginx proxy (`NGF → gui → api-server`).
 - **SSL conditional**: When SSL is enabled, an additional egress rule allows NGF to reach cert-manager ACME HTTP-01 solver pods on port 8089 (see [Certificate Renewal](#certificate-renewal-flows)).
 
 Both webapp and mqtt data-plane pods share the same label (`app.kubernetes.io/managed-by: ngf-nginx`), so a single policy covers both. This means the webapp-gateway pod can technically reach mosquitto and vice versa, but both are trusted infrastructure pods.
@@ -174,8 +176,7 @@ gRPC admission service for device/sensor registration.
 gRPC service for IoT device management and MQTT command publishing.
 
 - **Ingress**: From `api-server`, `admission`, and kubelet on port 50051 (gRPC).
-- **Egress**: To `mosquitto:1883/8883` (MQTT publish) and MongoDB Atlas (port 27017).
-- **SSL conditional**: When MQTT SSL is enabled, adds egress to the MQTT public IP (`/32`) on port 8883. This is needed because in SSL mode, `api-devices` connects to mosquitto via the external MQTT domain name, which resolves to the public IP and routes through the MQTT gateway.
+- **Egress**: To `mosquitto:1883` (MQTT publish, always via internal service) and MongoDB Atlas (port 27017).
 
 #### 9. `allow-register`
 
@@ -196,8 +197,7 @@ Rust/Rocket service tracking device online status and managing FCM tokens.
 MQTT subscriber that bridges device presence messages into Redis.
 
 - **Ingress**: Kubelet only on port 80 (no service callers — inbound data comes via MQTT).
-- **Egress**: To `mosquitto:1883/8883` (MQTT subscribe) and `redis:6379`.
-- **SSL conditional**: Same as `api-devices` — adds egress to MQTT public IP on 8883 when SSL is enabled.
+- **Egress**: To `mosquitto:1883` (MQTT subscribe, always via internal service) and `redis:6379`.
 
 #### 12. `allow-online-alarm`
 
@@ -213,8 +213,7 @@ Polls Redis for offline devices and sends FCM push notifications.
 Rust service bridging MQTT messages to RabbitMQ.
 
 - **Ingress**: None — this is a pure outbound worker with no health probes.
-- **Egress**: To `mosquitto:1883/8883` (MQTT subscribe) and `rabbitmq:5672` (AMQP publish).
-- **SSL conditional**: Same as `api-devices` — adds egress to MQTT public IP on 8883 when SSL is enabled.
+- **Egress**: To `mosquitto:1883` (MQTT subscribe, always via internal service) and `rabbitmq:5672` (AMQP publish).
 
 #### 14. `allow-consumer`
 
@@ -275,7 +274,7 @@ Let's Encrypt                  home-anthill namespace
      ▼
  HTTP public IP
      │
-     ▼ (MetalLB)
+     ▼ (Cilium L2)
  webapp-gateway ──────────────▶ solver pod (:8089)
  (NGF, port 80)                 (temporary)
      │
@@ -312,7 +311,7 @@ Let's Encrypt                  home-anthill namespace
      ▼
  MQTT public IP
      │
-     ▼ (MetalLB)
+     ▼ (Cilium L2)
  mqtt-gateway ──────────────▶ solver pod (:8089)
  (NGF, port 80)               (temporary)
      │
@@ -352,39 +351,6 @@ Let's Encrypt                  home-anthill namespace
 
 **Key difference from HTTP renewal:** NGF terminates TLS for the webapp gateway, so it auto-reloads when the Secret changes. For MQTT, Mosquitto terminates TLS internally, so the `k8s-config-reloader` sidecar is needed to signal a cert reload.
 
-### SSL-Mode MQTT Egress
-
-When `domains.mqtt.ssl.enable: true`, three services connect to Mosquitto via the external MQTT domain name instead of the internal Kubernetes service name. This is necessary because they need the Let's Encrypt TLS certificate for the connection, which is bound to the external domain.
-
-```
-api-devices ──┐
-producer ─────┼──▶ mqtts://<mqtt-domain>:8883
-online-recv ──┘         │
-                        ▼
-                  MQTT public IP
-                        │
-                        ▼ (MetalLB)
-                  mqtt-gateway (NGF)
-                        │
-                        ▼ (TCPRoute)
-                  mosquitto (:8883)
-```
-
-Since the traffic targets the external public IP (not the internal pod IP), `podSelector`-based egress rules for `app: mosquitto` do not match this path. Instead, the policies use an `ipBlock` rule pinned to the MQTT public IP with a `/32` mask:
-
-```yaml
-- to:
-  - ipBlock:
-      cidr: {{ .Values.domains.mqtt.publicIp }}/32
-  ports:
-  - port: 8883
-    protocol: TCP
-```
-
-This ensures these pods can only reach the specific MQTT gateway IP on port 8883, not arbitrary hosts.
-
-**Services with this conditional rule:** `allow-api-devices` (#8), `allow-online-receiver` (#11), `allow-producer` (#13).
-
 ## Kubelet Health Probes
 
 Most services expose HTTP health endpoints that kubelet checks for readiness and liveness. The `nodesCIDR` value controls which IP range is allowed for these probes.
@@ -413,10 +379,14 @@ Only two policies reference pods in other namespaces:
 
 | Policy | Remote Namespace | Direction | Purpose |
 |--------|-----------------|-----------|---------|
+| `allow-ngf-dataplane` (#3) | `nginx-gateway` | Egress | nginx agent → NGF controller gRPC on targetPort 8443 |
+| `allow-ngf-dataplane` (#3) | `cert-manager` | Ingress | cert-manager ACME self-check HTTP on port 80 (requires `namespaceSelector`; `ipBlock` doesn't match pod traffic in Cilium) |
 | `allow-rabbitmq` (#17) | `rabbitmq-system` | Ingress | RabbitMQ Operator health checks and management API on ports 5672/15672 |
 | `allow-cert-manager-solver` (#18) | (same namespace) | Ingress | cert-manager creates solver pods directly in `home-anthill` |
 
-The NGF data-plane pods run in `home-anthill` (not `nginx-gateway`), so all NGF-related rules use same-namespace `podSelector` without `namespaceSelector`. The NGF controller runs in `nginx-gateway` but communicates with data-plane pods via Kubernetes API (ConfigMap/Secret updates), not direct network connections.
+The NGF data-plane pods run in `home-anthill` (not `nginx-gateway`), so backend egress rules (gui, admission-nginx, mosquitto) use same-namespace `podSelector` without `namespaceSelector`. However, the nginx agent must connect to the NGF controller in the `nginx-gateway` namespace via gRPC to receive its configuration — this is the one cross-namespace egress rule in this chart.
+
+> **Port note**: The `ngf-nginx-gateway-fabric` service exposes port 443 (named `agent-grpc`) which maps to `targetPort: 8443` on the controller pod. Kubernetes NetworkPolicy evaluates egress against the **target port** (post-DNAT), so the egress rule must specify port `8443`, not `443`. Using the service port (443) would be silently dropped.
 
 ## External Egress Rules
 

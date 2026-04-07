@@ -10,25 +10,12 @@ data:
     REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379
     REDIS_USERNAME={{ .Values.redis.username }}
     REDIS_PASSWORD={{ .Values.redis.password }}
-    {{- if .Values.domains.mqtt.ssl.enable }}
-    MQTT_URL={{ .Values.domains.mqtt.name }}
-    MQTT_PORT=8883
-    MQTT_TLS=true
-    {{- if eq "prod" .Values.letsencrypt.server.env  }}
-    ROOT_CA=/etc/ssl/certs/ISRG_Root_X1.pem
-    {{ else }}
-    ROOT_CA=/tls-cert/tls.crt
-    {{ end -}}
-    MQTT_CERT_FILE=/tls-cert/tls.crt
-    MQTT_KEY_FILE=/tls-cert/tls.key
-    {{ else }}
     MQTT_URL={{ .Values.mosquitto.serviceName }}.{{ .Values.namespace }}.svc.cluster.local
     MQTT_PORT=1883
     MQTT_TLS=false
     ROOT_CA=
     MQTT_CERT_FILE=
     MQTT_KEY_FILE=
-    {{ end -}}
     MQTT_CLIENT_ID=online-receiver
     {{- if .Values.mosquitto.auth.enable }}
     MQTT_AUTH=true
@@ -54,6 +41,8 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: online-receiver
@@ -72,7 +61,7 @@ spec:
       {{- end }}
       {{- if .Values.domains.mqtt.ssl.enable }}
       initContainers:
-        - name: init-certs
+        - name: wait-for-mqtt
           image: {{ if .Values.dhi.enabled }}{{ .Values.alpine.hardenedImage }}{{ else }}{{ .Values.alpine.image }}{{ end }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -80,17 +69,13 @@ spec:
               drop: ["ALL"]
           resources:
             {{- toYaml .Values.alpine.resources | nindent 12 }}
-          command: 
+          command:
             - "/bin/sh"
             - "-c"
             - |
-              cp /etc/tls/cert-issuer-mqtt/tls.crt /tls-cert/tls.crt
-              cp /etc/tls/cert-issuer-mqtt/tls.key /tls-cert/tls.key
-          volumeMounts:
-            - name: tls
-              mountPath: /tls-cert
-            - name: certmqtt
-              mountPath: /etc/tls/cert-issuer-mqtt
+              until nc -z {{ .Values.mosquitto.serviceName }}.{{ .Values.namespace }}.svc.cluster.local 1883; do
+                echo "Waiting for Mosquitto on port 1883..."; sleep 2
+              done
       {{- end }}
       containers:
       - name: online-receiver
@@ -132,16 +117,7 @@ spec:
           mountPath: /app/Rocket.toml
           subPath: Rocket.toml
           readOnly: true
-        {{- if .Values.domains.mqtt.ssl.enable }}
-        - name: tls
-          mountPath: /tls-cert
-        {{- end }}
       volumes:
       - name: online-receiver-config
         configMap:
           name: online-receiver-config
-      - name: certmqtt
-        secret:
-          secretName: mqtt-tls
-      - name: tls
-        emptyDir: {}

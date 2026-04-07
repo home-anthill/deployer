@@ -10,25 +10,12 @@ data:
     AMQP_URI=amqp://{{ .Values.rabbitmq.producer.user }}:{{ .Values.rabbitmq.producer.password }}@rabbitmq.{{ .Values.namespace }}.svc.cluster.local:5672
     AMQP_HMAC_SECRET={{ .Values.rabbitmq.amqpHmacSecret }}
     AMQP_QUEUE_NAME=ks89
-    {{- if .Values.domains.mqtt.ssl.enable }}
-    MQTT_URL={{ .Values.domains.mqtt.name }}
-    MQTT_PORT=8883
-    MQTT_TLS=true
-    {{- if eq "prod" .Values.letsencrypt.server.env  }}
-    ROOT_CA=/etc/ssl/certs/ISRG_Root_X1.pem
-    {{ else }}
-    ROOT_CA=/tls-cert/tls.crt
-    {{ end -}}
-    MQTT_CERT_FILE=/tls-cert/tls.crt
-    MQTT_KEY_FILE=/tls-cert/tls.key
-    {{ else }}
     MQTT_URL={{ .Values.mosquitto.serviceName }}.{{ .Values.namespace }}.svc.cluster.local
     MQTT_PORT=1883
     MQTT_TLS=false
     ROOT_CA=
     MQTT_CERT_FILE=
     MQTT_KEY_FILE=
-    {{ end -}}
     MQTT_CLIENT_ID=producer
     {{- if .Values.mosquitto.auth.enable }}
     MQTT_AUTH=true
@@ -47,6 +34,8 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: producer
@@ -65,7 +54,7 @@ spec:
       {{- end }}
       {{- if .Values.domains.mqtt.ssl.enable }}
       initContainers:
-        - name: init-certs
+        - name: wait-for-mqtt
           image: {{ if .Values.dhi.enabled }}{{ .Values.alpine.hardenedImage }}{{ else }}{{ .Values.alpine.image }}{{ end }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -73,17 +62,13 @@ spec:
               drop: ["ALL"]
           resources:
             {{- toYaml .Values.alpine.resources | nindent 12 }}
-          command: 
+          command:
             - "/bin/sh"
             - "-c"
             - |
-              cp /etc/tls/cert-issuer-mqtt/tls.crt /tls-cert/tls.crt
-              cp /etc/tls/cert-issuer-mqtt/tls.key /tls-cert/tls.key
-          volumeMounts:
-            - name: tls
-              mountPath: /tls-cert
-            - name: certmqtt
-              mountPath: /etc/tls/cert-issuer-mqtt
+              until nc -z {{ .Values.mosquitto.serviceName }}.{{ .Values.namespace }}.svc.cluster.local 1883; do
+                echo "Waiting for Mosquitto on port 1883..."; sleep 2
+              done
       {{- end }}
       containers:
       - name: producer
@@ -102,35 +87,18 @@ spec:
         resources:
           {{- toYaml .Values.producer.resources | nindent 10 }}
         ports:
-        {{- if .Values.domains.mqtt.ssl.enable }}
-        - name: mqtts
-          containerPort: 8883
-          protocol: TCP
-        {{- else }}
         - name: mqtt
           containerPort: 1883
           protocol: TCP
-        {{- end }}
         volumeMounts:
           - name: producer-config
             mountPath: /app/.env
             subPath: .env
             readOnly: true
-          {{- if .Values.domains.mqtt.ssl.enable }}
-          - name: tls
-            mountPath: /tls-cert
-          {{- end }}
       volumes:
         - name: producer-config
           configMap:
             name: producer-config
-        {{- if .Values.domains.mqtt.ssl.enable }}
-        - name: certmqtt
-          secret:
-            secretName: mqtt-tls
-        - name: tls
-          emptyDir: {}
-        {{- end }}
 ---
 kind: Service
 apiVersion: v1
@@ -141,16 +109,7 @@ spec:
   selector:
     app: producer
   ports:
-    {{- if .Values.domains.mqtt.ssl.enable }}
-    # expose mqtts port
-    - name: mqtts
-      protocol: TCP
-      port: 8883
-      targetPort: mqtts
-    {{- else }}
-    # expose mqtt port
     - name: mqtt
       protocol: TCP
       port: 1883
       targetPort: mqtt
-    {{- end }}

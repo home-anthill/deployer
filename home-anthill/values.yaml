@@ -26,7 +26,7 @@ letsencrypt:
   #   # attention: if you want to use staging server, you should update CA cert in sensors and devices firmwares,
   #   # because firmwares have the let's encrypt rootCA, but for staging you should use the public cert as CA 
   #   env: "staging"
-    # path: "https://acme-staging-v02.api.letsencrypt.org/directory"
+  #   path: "https://acme-staging-v02.api.letsencrypt.org/directory"
 
 # dhi.io hardened image registry credentials
 # ATTENTION: you must use your Dockerhub credentials here
@@ -74,7 +74,7 @@ mosquitto:
   auth:
     enable: true
     username: "mosquser"
-    password: "Password1!"
+    password: "Password1!" # default value, please replace this with your custom values file
   resources:
     requests:
       cpu: "5m"
@@ -106,15 +106,23 @@ redis:
 rabbitmq:
   image: "rabbitmq:4.2.4-management"
   # serviceName is by default 'rabbitmq'
+  # use only alphanumerical passwords for rabbitmq (no special characters)
   user: "rabbitadmin"
   password: "rabbitadminpassword" # default value, please replace this with your custom values file
   producer:
     user: "produceruser"
-    password: "producerpassword"
+    password: "producerpassword"  # default value, please replace this with your custom values file
   consumer:
     user: "consumeruser"
-    password: "consumerpassword"
-  amqpHmacSecret: "my_super_secret_hmac_key"
+    password: "consumerpassword"  # default value, please replace this with your custom values file
+  amqpHmacSecret: "supersecrehmac"  # default value, please replace this with your custom values file
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
 
 # external mongodb service (for instance Atlas Cloud MongoDB)
 mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net" # <-- update this with your MongoDB URL, for instance from Atlas Cloud MongoDB
@@ -126,10 +134,10 @@ gui:
   resources:
     requests:
       cpu: "5m"
-      memory: "64Mi"
+      memory: "32Mi"
     limits:
       cpu: "200m"
-      memory: "128Mi"
+      memory: "64Mi"
 
 admission:
   image: "ks89/admission:develop"
@@ -148,10 +156,10 @@ admission:
   nginxResources:
     requests:
       cpu: "5m"
-      memory: "64Mi"
+      memory: "32Mi"
     limits:
       cpu: "200m"
-      memory: "128Mi"
+      memory: "64Mi"
 
 apiDevices:
   image: "ks89/api-devices:develop"
