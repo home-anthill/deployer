@@ -52,12 +52,19 @@ spec:
       imagePullSecrets:
         - name: dhi-registry-secret
       {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
       {{- if .Values.domains.mqtt.ssl.enable }}
       initContainers:
         - name: wait-for-mqtt
           image: {{ if .Values.dhi.enabled }}{{ .Values.alpine.hardenedImage }}{{ else }}{{ .Values.alpine.image }}{{ end }}
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           resources:
@@ -82,6 +89,7 @@ spec:
         {{- end }}
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
         resources:
@@ -95,10 +103,18 @@ spec:
             mountPath: /app/.env
             subPath: .env
             readOnly: true
+          - name: tmp
+            mountPath: /tmp
+          - name: logs
+            mountPath: /app/logs
       volumes:
         - name: producer-config
           configMap:
             name: producer-config
+        - name: tmp
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
 ---
 kind: Service
 apiVersion: v1

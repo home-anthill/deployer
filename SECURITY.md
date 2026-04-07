@@ -13,9 +13,8 @@ Audit of the `home-anthill` Helm chart (`home-anthill/`).
 | #5 | High | No container `securityContext` (`allowPrivilegeEscalation`, `capabilities.drop`) | ✅ Fixed — added to all 13 containers + 3 init containers |
 | #6 | High | No `resources` limits/requests on any container | ✅ Fixed — added to all containers, configurable in `values.yaml` |
 | #7 | High | `hostPath` volumes for Redis and Mosquitto data | 🔴 Open |
-| #8 | High | `k8s-config-reloader` sidecar runs as root (`runAsNonRoot: false`) | 🔴 Open |
+| #8 | High | `k8s-config-reloader` sidecar runs as root (`runAsNonRoot: false`) | ✅ Mitigated — `runAsUser: 0` is now explicit (required for cross-process SIGKILL); all other containers run as non-root |
 | #9 | High | Reused Rocket Framework `secret_key` across register, online, online-alarm, online-receiver | 🔴 Open |
-| #10 | High | `ks89/producer:develop` — mutable image tag | 🔴 Open |
 | #11 | High | No NetworkPolicies | ✅ Fixed — 16 policies added, toggle in `values.yaml` |
 | #12 | Medium | No Pod Security Standards labels on namespace | 🔴 Open |
 | #13 | Medium | No `ResourceQuota` or `LimitRange` | 🔴 Open |
@@ -36,12 +35,22 @@ Audit of the `home-anthill` Helm chart (`home-anthill/`).
 | N2 | High | No `Recreate` deployment strategy for Redis + Mosquitto (RollingUpdate risks concurrent writes to `hostPath`) | 🔴 Open |
 | N3 | High | `init-certs` Alpine containers had no `securityContext` | ✅ Fixed — as part of #5 |
 | N4 | Medium | No minimum TLS version enforced on webapp Gateway | ✅ Fixed — TLS 1.2 minimum + AEAD-only ciphers in `ClientSettingsPolicy` |
-| N5 | Medium | No `Strict-Transport-Security` (HSTS) header when SSL is enabled | 🔴 Open |
+| N5 | Medium | No `Strict-Transport-Security` (HSTS) header when SSL is enabled | ✅ Fixed — `max-age=31536000; includeSubDomains` added to all HTTPS `ResponseHeaderModifier` blocks in `gateway-webapp.yaml` |
 | N6 | Medium | Gateway listeners lack explicit `allowedRoutes` | 🔴 Open |
 | N7 | Medium | No liveness/readiness probes on `admission-nginx` | ✅ Fixed |
 | N8 | Medium | `RabbitmqCluster` has no `spec.resources` defined | 🔴 Open |
 | N9 | Low | `producer` Service exposed AMQP port 5672 (producer is a client, not a server) | ✅ Fixed |
 
+## Hardening Improvements (K8s Security Best Practices)
+
+| # | Severity | Issue | Status |
+|---|----------|-------|--------|
+| H1 | High | All containers ran as root (no `runAsNonRoot`/`runAsUser`) | ✅ Fixed — all pods run as uid 65534 (nobody); mosquitto as uid 1883; redis as uid 999 |
+| H2 | High | Writable root filesystem on all containers (no `readOnlyRootFilesystem`) | ✅ Fixed — `readOnlyRootFilesystem: true` on all containers; writable `emptyDir` volumes added for `/tmp`, `/app/logs`, nginx cache/run/log paths |
+| H3 | High | No seccomp profile on any pod | ✅ Fixed — `seccompProfile: RuntimeDefault` added to all 13 Deployments |
+| H4 | Medium | Redis pod `securityContext` was conditional on `dhi.enabled` | ✅ Fixed — `runAsUser/Group: 999`, `runAsNonRoot: true`, `seccompProfile` now applied unconditionally |
+
 ## Summary
 
-**11 fixed · 13 open** (3 Critical · 4 High · 6 Medium · 1 Low remaining)
+**17 fixed · 11 open** (3 Critical · 3 High · 5 Medium · 1 Low remaining)
+

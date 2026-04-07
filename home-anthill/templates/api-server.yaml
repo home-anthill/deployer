@@ -61,6 +61,12 @@ spec:
       serviceAccountName: api-server
       automountServiceAccountToken: false
       {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: api-server
         image: {{ .Values.apiServer.image }}
@@ -68,8 +74,10 @@ spec:
         workingDir: /tmp
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+            add: ["NET_BIND_SERVICE"]
         resources:
           {{- toYaml .Values.apiServer.resources | nindent 10 }}
         readinessProbe:
@@ -101,10 +109,14 @@ spec:
           mountPath: /tmp/.env
           subPath: .env
           readOnly: true
+        - name: tmp
+          mountPath: /tmp
       volumes:
       - name: api-server-config
         configMap:
           name: api-server-config
+      - name: tmp
+        emptyDir: {}
 ---
 kind: Service
 apiVersion: v1

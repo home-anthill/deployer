@@ -42,6 +42,12 @@ spec:
       serviceAccountName: admission
       automountServiceAccountToken: false
       {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: admission
         image: {{ .Values.admission.image }}
@@ -49,8 +55,10 @@ spec:
         workingDir: /tmp
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+            add: ["NET_BIND_SERVICE"]
         resources:
           {{- toYaml .Values.admission.resources | nindent 10 }}
         readinessProbe:
@@ -82,10 +90,14 @@ spec:
           mountPath: /tmp/.env
           subPath: .env
           readOnly: true
+        - name: tmp
+          mountPath: /tmp
       volumes:
       - name: admission-config
         configMap:
           name: admission-config
+      - name: tmp
+        emptyDir: {}
 ---
 kind: Service
 apiVersion: v1
@@ -168,6 +180,9 @@ spec:
       imagePullSecrets:
         - name: dhi-registry-secret
       {{- end }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: admission-nginx
         image: {{ if .Values.dhi.enabled }}{{ .Values.nginx.hardenedImage }}{{ else }}{{ .Values.nginx.image }}{{ end }}
@@ -185,6 +200,7 @@ spec:
           failureThreshold: 2
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
             add: ["NET_BIND_SERVICE", "CHOWN", "SETUID", "SETGID"]
@@ -206,6 +222,8 @@ spec:
             mountPath: /run
           - name: nginx-tmp
             mountPath: /tmp
+          - name: nginx-log
+            mountPath: /var/log/nginx
       volumes:
         - name: admission-nginx-config
           configMap:
@@ -215,6 +233,8 @@ spec:
         - name: nginx-run
           emptyDir: {}
         - name: nginx-tmp
+          emptyDir: {}
+        - name: nginx-log
           emptyDir: {}
 ---
 kind: Service

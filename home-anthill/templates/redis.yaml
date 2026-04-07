@@ -39,18 +39,20 @@ spec:
       imagePullSecrets:
         - name: dhi-registry-secret
       {{- end }}
-      {{- if .Values.dhi.enabled }}
       securityContext:
-        fsGroup: 999 # 999 = the redis group in the hardened image
+        fsGroup: 999
         runAsUser: 999
         runAsGroup: 999
-      {{- end }}
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: redis
         image: {{ if .Values.dhi.enabled }}{{ .Values.redis.hardenedImage }}{{ else }}{{ .Values.redis.image }}{{ end }}
         imagePullPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
         resources:
@@ -90,6 +92,8 @@ spec:
             mountPath: /usr/local/etc/redis/redis.conf
             subPath: redis.conf
             readOnly: true
+          - name: tmp
+            mountPath: /tmp
       volumes:
         - name: data
           persistentVolumeClaim:
@@ -97,6 +101,8 @@ spec:
         - name: redis-config
           configMap:
             name: redis-config
+        - name: tmp
+          emptyDir: {}
 ---
 kind: Service
 apiVersion: v1

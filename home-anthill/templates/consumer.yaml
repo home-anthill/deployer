@@ -35,6 +35,12 @@ spec:
       serviceAccountName: consumer
       automountServiceAccountToken: false
       {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: consumer
         image: {{ .Values.consumer.image }}
@@ -47,8 +53,10 @@ spec:
         {{- end }}
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+            add: ["NET_BIND_SERVICE"]
         resources:
           {{- toYaml .Values.consumer.resources | nindent 10 }}
         ports:
@@ -60,10 +68,18 @@ spec:
           mountPath: /app/.env
           subPath: .env
           readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        - name: logs
+          mountPath: /app/logs
       volumes:
       - name: consumer-config
         configMap:
           name: consumer-config
+      - name: tmp
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
 ---
 kind: Service
 apiVersion: v1

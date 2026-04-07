@@ -299,7 +299,7 @@ onlineAlarm:
 # network policy configuration
 serviceAccounts:
   # Set to false to skip creating ServiceAccount resources and binding them to pods
-  enabled: false
+  enabled: true
 
 network:
   # Set to false to skip deploying all NetworkPolicy resources (useful for dev/test clusters)

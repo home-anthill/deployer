@@ -70,12 +70,16 @@ spec:
       serviceAccountName: gui
       automountServiceAccountToken: false
       {{- end }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: gui
         image: {{ .Values.gui.image }}
         imagePullPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
         resources:
@@ -101,10 +105,26 @@ spec:
             mountPath: /etc/nginx/nginx.conf
             subPath: nginx.conf
             readOnly: true
+          - name: nginx-cache
+            mountPath: /var/cache/nginx
+          - name: nginx-run
+            mountPath: /run
+          - name: nginx-tmp
+            mountPath: /tmp
+          - name: nginx-log
+            mountPath: /var/log/nginx
       volumes:
         - name: gui-config
           configMap:
             name: gui-config
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+        - name: nginx-tmp
+          emptyDir: {}
+        - name: nginx-log
+          emptyDir: {}
 ---
 kind: Service
 apiVersion: v1

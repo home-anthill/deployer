@@ -43,6 +43,12 @@ spec:
       serviceAccountName: online-alarm
       automountServiceAccountToken: false
       {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: online-alarm
         image: {{ .Values.onlineAlarm.image }}
@@ -55,8 +61,10 @@ spec:
         {{- end }}
         securityContext:
           allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+            add: ["NET_BIND_SERVICE"]
         resources:
           {{- toYaml .Values.onlineAlarm.resources | nindent 10 }}
         readinessProbe:
@@ -87,7 +95,15 @@ spec:
           mountPath: /app/serviceAccountKey.json
           subPath: serviceAccountKey.json
           readOnly: true
+        - name: tmp
+          mountPath: /tmp
+        - name: logs
+          mountPath: /app/logs
       volumes:
       - name: online-alarm-config
         configMap:
           name: online-alarm-config
+      - name: tmp
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
