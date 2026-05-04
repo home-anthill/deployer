@@ -8,13 +8,14 @@ This document describes the Kubernetes NetworkPolicy resources deployed by the `
 2. **Least privilege**: Every egress and ingress rule is scoped to specific pods and ports. No service has broader access than it needs.
 3. **Conditional SSL rules**: When MQTT or HTTP SSL is enabled, additional rules are rendered to support external MQTT connections and ACME certificate challenges. These rules have zero effect when SSL is disabled.
 4. **Namespace awareness**: Cross-namespace traffic (RabbitMQ Operator, cert-manager solver pods) uses `namespaceSelector` to restrict access to specific operator namespaces.
+5. **Test isolation**: Helm deployment smoke tests use hook-scoped NetworkPolicies in `templates/tests/smoke-test.yaml`; those policies are created only for `helm test` and deleted after successful test completion.
 
 ## Configuration Values
 
 | Value | Default | Purpose |
 |-------|---------|---------|
 | `network.enabled` | `true` | Enables/disables all NetworkPolicy resources |
-| `network.nodesCIDR` | `10.0.0.0/8` | CIDR for kubelet health-probe traffic. Restrict to your actual node IP range in production. |
+| `network.nodesCIDR` | `10.0.0.0/24` | CIDR for kubelet health-probe traffic. Set to the target cluster's actual node subnet. |
 | `network.nginxGatewayNamespace` | `nginx-gateway` | Namespace where the NGF controller runs (used for reference; data-plane pods run in `home-anthill`) |
 | `network.rabbitmqOperatorNamespace` | `rabbitmq-system` | Namespace where the RabbitMQ Kubernetes Operator runs |
 | `domains.http.ssl.enable` | `false` | Enables HTTP SSL conditional rules (cert-manager solver) |
@@ -24,6 +25,8 @@ This document describes the Kubernetes NetworkPolicy resources deployed by the `
 ## Policy Summary
 
 The chart deploys 17 policies with SSL disabled, or 18 when SSL is enabled.
+
+`helm test` creates two additional temporary NetworkPolicies: one allows the smoke-test pod to reach the services it validates, and one allows those services to receive the smoke-test traffic. The smoke-test egress policy also allows outbound HTTP/HTTPS so the Alpine test image can install its client packages at runtime.
 
 | # | Policy Name | Pod Selector | Ingress From | Egress To |
 |---|------------|-------------|-------------|----------|
@@ -41,8 +44,8 @@ The chart deploys 17 policies with SSL disabled, or 18 when SSL is enabled.
 | 12 | `allow-online-alarm` | `app: online-alarm` | kubelet on 80 | redis:6379, ext:443 |
 | 13 | `allow-producer` | `app: producer` | none | mosquitto:1883, rabbitmq:5672 |
 | 14 | `allow-consumer` | `app: consumer` | none | rabbitmq:5672, ext:27017 |
-| 15 | `allow-mosquitto` | `app: mosquitto` | NGF + api-devices + producer + online-receiver on 1883/8883 | none |
-| 16 | `allow-redis` | `app: redis` | online + online-receiver + online-alarm on 6379 | none |
+| 15 | `allow-mosquitto` | `app: mosquitto` | NGF + api-devices + producer + online-receiver on 1883/8883; kubelet on 1883 | none |
+| 16 | `allow-redis` | `app: redis` | online + online-receiver + online-alarm + kubelet on 6379 | none |
 | 17 | `allow-rabbitmq` | `app.kubernetes.io/name: rabbitmq` | producer + consumer on 5672, operator on 5672/15672 | none |
 | 18 | `allow-cert-manager-solver` (SSL only) | `acme.cert-manager.io/http01-solver: "true"` | NGF on 8089 | none |
 
@@ -353,7 +356,7 @@ Let's Encrypt                  home-anthill namespace
 
 ## Kubelet Health Probes
 
-Most services expose HTTP health endpoints that kubelet checks for readiness and liveness. The `nodesCIDR` value controls which IP range is allowed for these probes.
+Most services expose HTTP health endpoints that kubelet checks for readiness and liveness. The `nodesCIDR` value controls which IP range is allowed for these probes and should match the target cluster's node subnet.
 
 | Service | Probe Port | Probe Path | Protocol |
 |---------|-----------|------------|----------|
@@ -366,14 +369,20 @@ Most services expose HTTP health endpoints that kubelet checks for readiness and
 | online | 80 | `/keepalive` | HTTP |
 | online-receiver | 80 | `/keepalive` | HTTP |
 | online-alarm | 80 | `/keepalive` | HTTP |
-| mosquitto | — | — | exec (`mosquitto_pub`) |
-| redis | — | — | exec (`redis-cli ping`) |
+| mosquitto | 1883 | — | TCP socket |
+| redis | 6379 | — | TCP socket |
 | producer | — | — | none |
 | consumer | — | — | none |
 
-Services with exec probes (mosquitto, redis) do not need kubelet network access for probes — the check runs inside the container. Services with no probes (producer, consumer) rely on container exit codes for restart decisions.
+Redis and Mosquitto use TCP socket probes, so kubelet health checks are network probes against the container ports. Services with no probes (producer, consumer) rely on container exit codes for restart decisions.
 
 ## Cross-Namespace Traffic
+
+Cross-namespace allowances are deliberately limited to infrastructure controllers:
+
+- NGF data-plane pods can reach the NGF controller in `network.nginxGatewayNamespace` on target port 8443 for dynamic config.
+- RabbitMQ pods can receive RabbitMQ Operator reconciliation and management checks from `network.rabbitmqOperatorNamespace`.
+- When SSL is enabled, cert-manager solver traffic is limited to HTTP-01 challenge paths and solver pods.
 
 Only two policies reference pods in other namespaces:
 

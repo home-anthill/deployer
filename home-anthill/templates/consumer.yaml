@@ -80,17 +80,3 @@ spec:
         emptyDir: {}
       - name: logs
         emptyDir: {}
----
-kind: Service
-apiVersion: v1
-metadata:
-  name: {{ .Values.consumer.serviceName }}
-  namespace: {{ .Values.namespace }}
-spec:
-  selector:
-    app: consumer
-  ports:
-    - name: http
-      protocol: TCP
-      port: 80
-      targetPort: http

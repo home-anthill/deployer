@@ -184,6 +184,9 @@ spec:
         - name: dhi-registry-secret
       {{- end }}
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -206,7 +209,7 @@ spec:
           readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
-            add: ["NET_BIND_SERVICE", "CHOWN", "SETUID", "SETGID"]
+            add: ["NET_BIND_SERVICE"]
         resources:
           {{- toYaml .Values.admission.nginxResources | nindent 10 }}
         ports:

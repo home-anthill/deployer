@@ -1,0 +1,292 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: home-anthill-smoke-test
+  namespace: {{ .Values.namespace }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+type: Opaque
+stringData:
+  redis-username: {{ .Values.redis.username | quote }}
+  redis-password: {{ .Values.redis.password | quote }}
+  mosquitto-auth-enable: {{ .Values.mosquitto.auth.enable | quote }}
+  mosquitto-username: {{ .Values.mosquitto.auth.users.device.username | quote }}
+  mosquitto-password: {{ .Values.mosquitto.auth.users.device.password | quote }}
+  rabbitmq-username: {{ .Values.rabbitmq.user | quote }}
+  rabbitmq-password: {{ .Values.rabbitmq.password | quote }}
+{{- if .Values.network.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-smoke-test-egress
+  namespace: {{ .Values.namespace }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  podSelector:
+    matchLabels:
+      app: home-anthill-smoke-test
+  policyTypes:
+  - Egress
+  egress:
+  - ports:
+    - port: 80
+      protocol: TCP
+    - port: 443
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app: gui
+    ports:
+    - port: 80
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app: api-server
+    ports:
+    - port: 80
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app: online
+    ports:
+    - port: 80
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - port: 6379
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app: mosquitto
+    ports:
+    - port: 1883
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: rabbitmq
+    ports:
+    - port: 15672
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-smoke-test-ingress
+  namespace: {{ .Values.namespace }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: home-anthill-smoke-test
+    ports:
+    - port: 80
+      protocol: TCP
+    - port: 1883
+      protocol: TCP
+    - port: 6379
+      protocol: TCP
+    - port: 15672
+      protocol: TCP
+{{- end }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: home-anthill-smoke-test
+  namespace: {{ .Values.namespace }}
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: home-anthill-smoke-test
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+      - name: check-gui
+        image: {{ .Values.smokeTests.curlImage }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - curl
+        - -fsS
+        - http://{{ .Values.gui.serviceName }}.{{ .Values.namespace }}.svc.cluster.local/keepalive
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.smokeTests.resources | nindent 10 }}
+      - name: check-api-server
+        image: {{ .Values.smokeTests.curlImage }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - curl
+        - -fsS
+        - http://{{ .Values.apiServer.serviceName }}.{{ .Values.namespace }}.svc.cluster.local/api/keepalive
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.smokeTests.resources | nindent 10 }}
+      - name: check-online
+        image: {{ .Values.smokeTests.curlImage }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - curl
+        - -fsS
+        - http://{{ .Values.online.serviceName }}.{{ .Values.namespace }}.svc.cluster.local/keepalive
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.smokeTests.resources | nindent 10 }}
+      - name: check-redis
+        image: {{ .Values.smokeTests.redisImage }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - redis-cli
+        - -h
+        - {{ printf "%s.%s.svc.cluster.local" .Values.redis.serviceName .Values.namespace | quote }}
+        - --user
+        - $(REDIS_USERNAME)
+        - -a
+        - $(REDIS_PASSWORD)
+        - --no-auth-warning
+        - ping
+        env:
+        - name: REDIS_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: home-anthill-smoke-test
+              key: redis-username
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: home-anthill-smoke-test
+              key: redis-password
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.smokeTests.resources | nindent 10 }}
+      - name: check-mosquitto
+        image: {{ .Values.smokeTests.mosquittoImage }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - mosquitto_pub
+        - -h
+        - {{ printf "%s.%s.svc.cluster.local" .Values.mosquitto.serviceName .Values.namespace | quote }}
+        - -p
+        - "1883"
+        {{- if .Values.mosquitto.auth.enable }}
+        - -u
+        - $(MOSQUITTO_USERNAME)
+        - -P
+        - $(MOSQUITTO_PASSWORD)
+        {{- end }}
+        - -t
+        - sensors/smoke-test/temperature
+        - -m
+        - ok
+        env:
+        - name: MOSQUITTO_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: home-anthill-smoke-test
+              key: mosquitto-username
+        - name: MOSQUITTO_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: home-anthill-smoke-test
+              key: mosquitto-password
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.smokeTests.resources | nindent 10 }}
+      - name: check-rabbitmq
+        image: {{ .Values.smokeTests.curlImage }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - curl
+        - -fsS
+        - -u
+        - $(RABBITMQ_USERNAME):$(RABBITMQ_PASSWORD)
+        - http://rabbitmq.{{ .Values.namespace }}.svc.cluster.local:15672/api/overview
+        env:
+        - name: RABBITMQ_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: home-anthill-smoke-test
+              key: rabbitmq-username
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: home-anthill-smoke-test
+              key: rabbitmq-password
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.smokeTests.resources | nindent 10 }}
+      containers:
+      - name: smoke-test
+        image: {{ .Values.smokeTests.image }}
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.smokeTests.resources | nindent 10 }}
+        command:
+        - /bin/sh
+        - -ec
+        - |
+          echo "smoke tests passed"
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}

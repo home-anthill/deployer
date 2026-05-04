@@ -30,7 +30,31 @@ data:
 
     {{- if .Values.mosquitto.auth.enable }}
     password_file /mosquitto/passwd/password_file
+    acl_file /mosquitto/acl/acl_file
     {{- end }}
+---
+{{- if .Values.mosquitto.auth.enable }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mosquitto-acl
+  namespace: {{ .Values.namespace }}
+data:
+  acl_file: |-
+    user {{ .Values.mosquitto.auth.users.device.username }}
+    topic write sensors/+/+
+    topic write online/+/features/+
+    topic read devices/+/values
+
+    user {{ .Values.mosquitto.auth.users.producer.username }}
+    topic read sensors/+/+
+
+    user {{ .Values.mosquitto.auth.users.onlineReceiver.username }}
+    topic read online/+/features/+
+
+    user {{ .Values.mosquitto.auth.users.apiDevices.username }}
+    topic write devices/+/values
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -66,8 +90,35 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       shareProcessNamespace: true # to be able to restart mosquitto via k8s-config-reloader
-      {{- if .Values.domains.mqtt.ssl.enable }}
+      {{- if or .Values.domains.mqtt.ssl.enable .Values.mosquitto.auth.enable }}
       initContainers:
+      {{- if .Values.mosquitto.auth.enable }}
+      - name: prepare-acl
+        image: {{ if .Values.dhi.enabled }}{{ .Values.alpine.hardenedImage }}{{ else }}{{ .Values.alpine.image }}{{ end }}
+        securityContext:
+          runAsUser: 1883
+          runAsGroup: 1883
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          {{- toYaml .Values.alpine.resources | nindent 10 }}
+        command:
+          - /bin/sh
+          - -ec
+          - |
+            cp /mosquitto/acl-src/acl_file /mosquitto/acl/acl_file
+            chmod 0400 /mosquitto/acl/acl_file
+        volumeMounts:
+          - name: acl-src
+            mountPath: /mosquitto/acl-src
+            readOnly: true
+          - name: acl
+            mountPath: /mosquitto/acl
+      {{- end }}
+      {{- if .Values.domains.mqtt.ssl.enable }}
       - name: wait-for-cert
         image: {{ if .Values.dhi.enabled }}{{ .Values.alpine.hardenedImage }}{{ else }}{{ .Values.alpine.image }}{{ end }}
         securityContext:
@@ -89,6 +140,7 @@ spec:
           - name: certmqtt
             mountPath: /etc/mosquitto/certs/
       {{- end }}
+      {{- end }}
       containers:
       - name: mosquitto
         image: {{ .Values.mosquitto.image }}
@@ -101,38 +153,12 @@ spec:
         resources:
           {{- toYaml .Values.mosquitto.resources | nindent 10 }}
         readinessProbe:
-          exec:
-            command:
-            - mosquitto_pub
-            - -h
-            - localhost
-            - -p
-            - "1883"
-            - -u
-            - "{{ .Values.mosquitto.auth.username }}"
-            - -P
-            - "{{ .Values.mosquitto.auth.password }}"
-            - -m
-            - "readiness_probe"
-            - -t
-            - readiness
+          tcpSocket:
+            port: mqtt
           periodSeconds: 10
         livenessProbe:
-          exec:
-            command:
-            - mosquitto_pub
-            - -h
-            - localhost
-            - -p
-            - "1883"
-            - -u
-            - "{{ .Values.mosquitto.auth.username }}"
-            - -P
-            - "{{ .Values.mosquitto.auth.password }}"
-            - -m
-            - "readiness_probe"
-            - -t
-            - readiness
+          tcpSocket:
+            port: mqtt
           periodSeconds: 60
         env:
         {{ if .Values.domains.mqtt.ssl.enable }}
@@ -140,10 +166,8 @@ spec:
           value: "true"
         {{- end }}
         {{- if .Values.mosquitto.auth.enable }}
-        - name: MOSQUITTO_USERNAME
-          value: {{ .Values.mosquitto.auth.username }}
-        - name: MOSQUITTO_PASSWORD
-          value: {{ .Values.mosquitto.auth.password }}
+        - name: MOSQUITTO_USERS
+          value: {{ printf "%s:%s,%s:%s,%s:%s,%s:%s" .Values.mosquitto.auth.users.device.username .Values.mosquitto.auth.users.device.password .Values.mosquitto.auth.users.producer.username .Values.mosquitto.auth.users.producer.password .Values.mosquitto.auth.users.onlineReceiver.username .Values.mosquitto.auth.users.onlineReceiver.password .Values.mosquitto.auth.users.apiDevices.username .Values.mosquitto.auth.users.apiDevices.password | quote }}
         {{- end }}
         ports:
         {{- if .Values.domains.mqtt.ssl.enable }}
@@ -167,6 +191,11 @@ spec:
             readOnly: true
           - name: passwd
             mountPath: /mosquitto/passwd
+          {{- if .Values.mosquitto.auth.enable }}
+          - name: acl
+            mountPath: /mosquitto/acl
+            readOnly: true
+          {{- end }}
           - name: tmp
             mountPath: /tmp
           {{- if .Values.domains.mqtt.ssl.enable }}
@@ -186,14 +215,13 @@ spec:
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
-            add:
-              - KILL
             drop:
               - ALL
           privileged: false
           readOnlyRootFilesystem: true
-          runAsNonRoot: false
-          runAsUser: 0
+          runAsNonRoot: true
+          runAsUser: 1883
+          runAsGroup: 1883
         volumeMounts:
           - mountPath: /config/
             name: mosquitto-config
@@ -210,6 +238,14 @@ spec:
             name: mosquitto-config
         - name: passwd
           emptyDir: {}
+        {{- if .Values.mosquitto.auth.enable }}
+        - name: acl
+          emptyDir: {}
+        - name: acl-src
+          configMap:
+            name: mosquitto-acl
+            defaultMode: 0444
+        {{- end }}
         - name: tmp
           emptyDir: {}
         {{- if .Values.domains.mqtt.ssl.enable }}

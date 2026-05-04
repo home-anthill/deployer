@@ -17,8 +17,8 @@ data:
     MQTT_CLIENT_ID=apiDevices
     {{- if .Values.mosquitto.auth.enable }}
     MQTT_AUTH=true
-    MQTT_USER={{ .Values.mosquitto.auth.username }}
-    MQTT_PASSWORD={{ .Values.mosquitto.auth.password }}
+    MQTT_USER={{ .Values.mosquitto.auth.users.apiDevices.username }}
+    MQTT_PASSWORD={{ .Values.mosquitto.auth.users.apiDevices.password }}
     {{ else }}
     MQTT_AUTH=false
     MQTT_USER=

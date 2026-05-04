@@ -19,8 +19,8 @@ data:
     MQTT_CLIENT_ID=producer
     {{- if .Values.mosquitto.auth.enable }}
     MQTT_AUTH=true
-    MQTT_USER={{ .Values.mosquitto.auth.username }}
-    MQTT_PASSWORD={{ .Values.mosquitto.auth.password }}
+    MQTT_USER={{ .Values.mosquitto.auth.users.producer.username }}
+    MQTT_PASSWORD={{ .Values.mosquitto.auth.users.producer.password }}
     {{ else }}
     MQTT_AUTH=false
     MQTT_USER=
@@ -115,17 +115,3 @@ spec:
           emptyDir: {}
         - name: logs
           emptyDir: {}
----
-kind: Service
-apiVersion: v1
-metadata:
-  name: {{ .Values.producer.serviceName }}
-  namespace: {{ .Values.namespace }}
-spec:
-  selector:
-    app: producer
-  ports:
-    - name: mqtt
-      protocol: TCP
-      port: 1883
-      targetPort: mqtt

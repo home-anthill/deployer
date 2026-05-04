@@ -31,6 +31,7 @@
 #
 #   Kubelet → pods with HTTP health probes :80 (nodesCIDR)
 #   Kubelet → api-devices health probe     :50051 (nodesCIDR)
+#   Kubelet → mosquitto/redis TCP probes   :1883/:6379 (nodesCIDR)
 #   All pods → kube-dns :53 UDP/TCP
 #
 #   NGF data-plane → NGF controller :8443 (gRPC control-plane; svc port 443 → targetPort 8443)
@@ -439,7 +440,8 @@ spec:
 
 ---
 # 11. online-receiver: no service callers; kubelet health probe on :80.
-#     Egress: mosquitto (MQTT subscribe :1883, internal service), redis (:6379).
+#     Egress: mosquitto (MQTT subscribe :1883, internal service), redis (:6379),
+#             MongoDB Atlas (:27017) for signed MQTT payload verification.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -475,6 +477,10 @@ spec:
           app: redis
     ports:
     - port: 6379
+      protocol: TCP
+  # MongoDB Atlas (external)
+  - ports:
+    - port: 27017
       protocol: TCP
 
 ---
@@ -573,7 +579,8 @@ spec:
 
 ---
 # 15. mosquitto: receives MQTT from NGF (ESP32 devices via TCPRoute) and from
-#     internal subscribers (api-devices, producer, online-receiver).
+#     internal subscribers (api-devices, producer, online-receiver). Kubelet
+#     TCP socket health probes use nodesCIDR.
 #     No egress needed — it is a pure broker.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -613,9 +620,17 @@ spec:
       protocol: TCP
     - port: 8883
       protocol: TCP
+  # Kubelet TCP socket probes
+  - from:
+    - ipBlock:
+        cidr: {{ .Values.network.nodesCIDR }}
+    ports:
+    - port: 1883
+      protocol: TCP
 
 ---
 # 16. redis: receives connections from online, online-receiver, online-alarm.
+#     Kubelet TCP socket health probes use nodesCIDR.
 #     No egress needed — it is a pure cache.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -639,6 +654,13 @@ spec:
     - podSelector:
         matchLabels:
           app: online-alarm
+    ports:
+    - port: 6379
+      protocol: TCP
+  # Kubelet TCP socket probes
+  - from:
+    - ipBlock:
+        cidr: {{ .Values.network.nodesCIDR }}
     ports:
     - port: 6379
       protocol: TCP

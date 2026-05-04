@@ -1,7 +1,6 @@
 ---
 # Gateway for MQTT (TCP) traffic.
 # NGINX Gateway Fabric creates a LoadBalancer Service for this Gateway;
-# the MetalLB annotation pins it to the configured MQTT public IP.
 #
 # The HTTP listener on port 80 exists solely so cert-manager can complete
 # the Let's Encrypt http01 ACME challenge for the mqtt-tls certificate when
@@ -17,7 +16,7 @@ metadata:
 spec:
   gatewayClassName: nginx
   # infrastructure.annotations are propagated by NGF to the LoadBalancer Service,
-  # allowing MetalLB to assign the specific public IP.
+  # allowing Cilium to assign the specific public IP.
   infrastructure:
     annotations:
       io.cilium/lb-ipam-ips: {{ .Values.domains.mqtt.publicIp | quote }}

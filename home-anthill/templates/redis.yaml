@@ -58,26 +58,12 @@ spec:
         resources:
           {{- toYaml .Values.redis.resources | nindent 10 }}
         readinessProbe:
-          exec:
-            command:
-            - redis-cli
-            - --user
-            - {{ .Values.redis.username }}
-            - -a
-            - {{ .Values.redis.password }}
-            - --no-auth-warning
-            - ping
+          tcpSocket:
+            port: redis-port
           periodSeconds: 5
         livenessProbe:
-          exec:
-            command:
-            - redis-cli
-            - --user
-            - {{ .Values.redis.username }}
-            - -a
-            - {{ .Values.redis.password }}
-            - --no-auth-warning
-            - ping
+          tcpSocket:
+            port: redis-port
           periodSeconds: 60
         # start redis with a custom redis.conf file
         command: ["redis-server", "/usr/local/etc/redis/redis.conf"]

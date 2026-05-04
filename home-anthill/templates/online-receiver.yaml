@@ -7,6 +7,7 @@ metadata:
 data:
   .env: |-
     LOG_LEVEL=info
+    MONGODB_URL={{ .Values.mongodbUrl }}
     REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379
     REDIS_USERNAME={{ .Values.redis.username }}
     REDIS_PASSWORD={{ .Values.redis.password }}
@@ -19,8 +20,8 @@ data:
     MQTT_CLIENT_ID=online-receiver
     {{- if .Values.mosquitto.auth.enable }}
     MQTT_AUTH=true
-    MQTT_USER={{ .Values.mosquitto.auth.username }}
-    MQTT_PASSWORD={{ .Values.mosquitto.auth.password }}
+    MQTT_USER={{ .Values.mosquitto.auth.users.onlineReceiver.username }}
+    MQTT_PASSWORD={{ .Values.mosquitto.auth.users.onlineReceiver.password }}
     {{ else }}
     MQTT_AUTH=false
     MQTT_USER=

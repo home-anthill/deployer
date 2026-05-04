@@ -73,8 +73,20 @@ mosquitto:
   dataFolder: "/root/mosquitto-persistence-data"
   auth:
     enable: true
-    username: "mosquser"
-    password: "Password1!" # default value, please replace this with your custom values file
+    users:
+      # Shared by all firmware devices. Backend services use separate role credentials below.
+      device:
+        username: "device_pubsub"
+        password: "DevicePassword1!" # default value, please replace this with your custom values file
+      producer:
+        username: "producer_sub"
+        password: "ProducerPassword1!" # default value, please replace this with your custom values file
+      onlineReceiver:
+        username: "online_receiver_sub"
+        password: "OnlineReceiverPassword1!" # default value, please replace this with your custom values file
+      apiDevices:
+        username: "api_devices_pub"
+        password: "ApiDevicesPassword1!" # default value, please replace this with your custom values file
   resources:
     requests:
       cpu: "5m"
@@ -87,8 +99,7 @@ mosquitto:
 redis:
   image: "redis:8"
   # hardened base images from dhi.io (used only if dhi.enabled is true)
-  # compat exists specifically to bridge the gap between "fully hardened" and "needs a shell".
-  # For example, when Redis health check needs redis-cli ping via a shell script.
+  # compat provides a shell and standard Redis tooling for operational debugging.
   hardenedImage: "dhi.io/redis:8-compat"
   serviceName: "redis-svc"
   dataFolder: "/root/redis-data"
@@ -124,8 +135,28 @@ rabbitmq:
       cpu: "500m"
       memory: "512Mi"
 
+# Helm test smoke checks. Run with: helm test home-anthill -n default
+smokeTests:
+  curlImage: "curlimages/curl:8.11.1"
+  redisImage: "redis:8-alpine"
+  mosquittoImage: "eclipse-mosquitto:2.0"
+  image: "alpine:3.20"
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "32Mi"
+    limits:
+      cpu: "200m"
+      memory: "128Mi"
+
 # external mongodb service (for instance Atlas Cloud MongoDB)
 mongodbUrl: "mongodb+srv://user:password@cluster0.1234.mongodb.net" # <-- update this with your MongoDB URL, for instance from Atlas Cloud MongoDB
+
+# required to enable Android App Links and to verify the ownership of the domain for the app
+androidAppLinks:
+  enabled: false
+  packageName: "eu.homeanthill" # this is the package name of the android app
+  sha256CertFingerprints: []
 
 # web app
 gui:
@@ -177,10 +208,12 @@ apiDevices:
 apiServer:
   image: "ks89/api-server:develop"
   serviceName: api-server-svc
+  # default values, please replace all those values with your custom values file
   singleUserLoginEmail: "your.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
   jwtRefreshPassword: "ZnUcqcJyZTMJMNa@@xu8ZirQskM.yt!C"
-  cookieSecret: "@DbTN*jA"
+  refreshTokenHashSecret: "@4DnwfN@H-qNMJ2dxPoXZ_Q7ooDCyqCm"
+  cookieSecret: "XeB84Rq-.CY-N.dJCmLC8Jrhm_D-3XRC"
   oauth2ClientID: "6caa41f023f6205b1c05"
   oauth2SecretID: "5ac42264964d85e4c2e938b4534d02f4d2b8b336"
   oauth2AppClientID: "79aa41f023f6205b1c05"
@@ -215,7 +248,6 @@ register:
 
 producer:
   image: "ks89/producer:develop"
-  serviceName: producer-svc
   resources:
     requests:
       cpu: "5m"
@@ -226,7 +258,6 @@ producer:
 
 consumer:
   image: "ks89/consumer:develop"
-  serviceName: consumer-svc
   resources:
     requests:
       cpu: "5m"
@@ -308,9 +339,9 @@ network:
   nginxGatewayNamespace: "nginx-gateway"
   # Namespace where RabbitMQ Kubernetes Operator runs
   rabbitmqOperatorNamespace: "rabbitmq-system"
-  # CIDR covering all Kubernetes node IPs — allows kubelet health-probe traffic.
-  # Restrict to your actual node IP range in production (e.g. "10.0.0.0/24").
-  nodesCIDR: "10.0.0.0/8"
+  # CIDR covering Kubernetes node IPs — allows kubelet health-probe traffic.
+  # Set this to your actual node subnet for the target cluster.
+  nodesCIDR: "10.0.0.0/24"
 
 # debug configuration, not for production environment
 debug:
