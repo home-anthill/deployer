@@ -1,10 +1,11 @@
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: producer-config
+  name: producer-secret
   namespace: {{ .Values.namespace }}
-data:
+type: Opaque
+stringData:
   .env: |-
     LOG_LEVEL=info
     AMQP_URI=amqp://{{ .Values.rabbitmq.producer.user }}:{{ .Values.rabbitmq.producer.password }}@rabbitmq.{{ .Values.namespace }}.svc.cluster.local:5672
@@ -99,7 +100,7 @@ spec:
           containerPort: 1883
           protocol: TCP
         volumeMounts:
-          - name: producer-config
+          - name: producer-secret
             mountPath: /app/.env
             subPath: .env
             readOnly: true
@@ -108,9 +109,9 @@ spec:
           - name: logs
             mountPath: /app/logs
       volumes:
-        - name: producer-config
-          configMap:
-            name: producer-config
+        - name: producer-secret
+          secret:
+            secretName: producer-secret
         - name: tmp
           emptyDir: {}
         - name: logs

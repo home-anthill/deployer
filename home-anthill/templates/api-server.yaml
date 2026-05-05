@@ -1,10 +1,11 @@
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: api-server-config
+  name: api-server-secret
   namespace: {{ .Values.namespace }}
-data:
+type: Opaque
+stringData:
   .env: |-
     {{- $httpScheme := ternary "https" "http" .Values.domains.http.ssl.enable }}
     LOG_FOLDER=./logs/
@@ -107,16 +108,16 @@ spec:
           containerPort: 80
           protocol: TCP
         volumeMounts:
-        - name: api-server-config
+        - name: api-server-secret
           mountPath: /tmp/.env
           subPath: .env
           readOnly: true
         - name: tmp
           mountPath: /tmp
       volumes:
-      - name: api-server-config
-        configMap:
-          name: api-server-config
+      - name: api-server-secret
+        secret:
+          secretName: api-server-secret
       - name: tmp
         emptyDir: {}
 ---

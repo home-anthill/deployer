@@ -1,10 +1,11 @@
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: register-config
+  name: register-secret
   namespace: {{ .Values.namespace }}
-data:
+type: Opaque
+stringData:
   .env: |-
     LOG_LEVEL=info
     MONGO_URI={{ .Values.mongodbUrl }}
@@ -80,11 +81,11 @@ spec:
           containerPort: 80
           protocol: TCP
         volumeMounts:
-        - name: register-config
+        - name: register-secret
           mountPath: /app/.env
           subPath: .env
           readOnly: true
-        - name: register-config
+        - name: register-secret
           mountPath: /app/Rocket.toml
           subPath: Rocket.toml
           readOnly: true
@@ -93,9 +94,9 @@ spec:
         - name: logs
           mountPath: /app/logs
       volumes:
-      - name: register-config
-        configMap:
-          name: register-config
+      - name: register-secret
+        secret:
+          secretName: register-secret
       - name: tmp
         emptyDir: {}
       - name: logs

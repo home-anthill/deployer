@@ -1,10 +1,11 @@
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: consumer-config
+  name: consumer-secret
   namespace: {{ .Values.namespace }}
-data:
+type: Opaque
+stringData:
   .env: |-
     LOG_LEVEL=info
     MONGO_URI={{ .Values.mongodbUrl }}
@@ -64,7 +65,7 @@ spec:
           containerPort: 80
           protocol: TCP
         volumeMounts:
-        - name: consumer-config
+        - name: consumer-secret
           mountPath: /app/.env
           subPath: .env
           readOnly: true
@@ -73,9 +74,9 @@ spec:
         - name: logs
           mountPath: /app/logs
       volumes:
-      - name: consumer-config
-        configMap:
-          name: consumer-config
+      - name: consumer-secret
+        secret:
+          secretName: consumer-secret
       - name: tmp
         emptyDir: {}
       - name: logs

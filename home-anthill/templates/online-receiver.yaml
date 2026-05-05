@@ -1,10 +1,11 @@
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: online-receiver-config
+  name: online-receiver-secret
   namespace: {{ .Values.namespace }}
-data:
+type: Opaque
+stringData:
   .env: |-
     LOG_LEVEL=info
     MONGODB_URL={{ .Values.mongodbUrl }}
@@ -119,11 +120,11 @@ spec:
           containerPort: 80
           protocol: TCP
         volumeMounts:
-        - name: online-receiver-config
+        - name: online-receiver-secret
           mountPath: /app/.env
           subPath: .env
           readOnly: true
-        - name: online-receiver-config
+        - name: online-receiver-secret
           mountPath: /app/Rocket.toml
           subPath: Rocket.toml
           readOnly: true
@@ -132,9 +133,9 @@ spec:
         - name: logs
           mountPath: /app/logs
       volumes:
-      - name: online-receiver-config
-        configMap:
-          name: online-receiver-config
+      - name: online-receiver-secret
+        secret:
+          secretName: online-receiver-secret
       - name: tmp
         emptyDir: {}
       - name: logs

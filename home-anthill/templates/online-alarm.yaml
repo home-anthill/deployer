@@ -1,10 +1,11 @@
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: online-alarm-config
+  name: online-alarm-secret
   namespace: {{ .Values.namespace }}
-data:
+type: Opaque
+stringData:
   .env: |-
     LOG_LEVEL=debug
     REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379
@@ -83,15 +84,15 @@ spec:
           containerPort: 80
           protocol: TCP
         volumeMounts:
-        - name: online-alarm-config
+        - name: online-alarm-secret
           mountPath: /app/.env
           subPath: .env
           readOnly: true
-        - name: online-alarm-config
+        - name: online-alarm-secret
           mountPath: /app/Rocket.toml
           subPath: Rocket.toml
           readOnly: true
-        - name: online-alarm-config
+        - name: online-alarm-secret
           mountPath: /app/serviceAccountKey.json
           subPath: serviceAccountKey.json
           readOnly: true
@@ -100,9 +101,9 @@ spec:
         - name: logs
           mountPath: /app/logs
       volumes:
-      - name: online-alarm-config
-        configMap:
-          name: online-alarm-config
+      - name: online-alarm-secret
+        secret:
+          secretName: online-alarm-secret
       - name: tmp
         emptyDir: {}
       - name: logs

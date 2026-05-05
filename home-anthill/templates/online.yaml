@@ -1,10 +1,11 @@
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: online-config
+  name: online-secret
   namespace: {{ .Values.namespace }}
-data:
+type: Opaque
+stringData:
   .env: |-
     LOG_LEVEL=info
     REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379
@@ -81,11 +82,11 @@ spec:
           containerPort: 80
           protocol: TCP
         volumeMounts:
-        - name: online-config
+        - name: online-secret
           mountPath: /app/.env
           subPath: .env
           readOnly: true
-        - name: online-config
+        - name: online-secret
           mountPath: /app/Rocket.toml
           subPath: Rocket.toml
           readOnly: true
@@ -94,9 +95,9 @@ spec:
         - name: logs
           mountPath: /app/logs
       volumes:
-      - name: online-config
-        configMap:
-          name: online-config
+      - name: online-secret
+        secret:
+          secretName: online-secret
       - name: tmp
         emptyDir: {}
       - name: logs

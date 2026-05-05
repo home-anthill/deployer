@@ -1,10 +1,11 @@
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: admission-config
+  name: admission-secret
   namespace: {{ .Values.namespace }}
-data:
+type: Opaque
+stringData:
   .env: |-
     LOG_FOLDER=./logs/
     MONGODB_URL={{ .Values.mongodbUrl }}
@@ -86,16 +87,16 @@ spec:
           containerPort: 80
           protocol: TCP
         volumeMounts:
-        - name: admission-config
+        - name: admission-secret
           mountPath: /tmp/.env
           subPath: .env
           readOnly: true
         - name: tmp
           mountPath: /tmp
       volumes:
-      - name: admission-config
-        configMap:
-          name: admission-config
+      - name: admission-secret
+        secret:
+          secretName: admission-secret
       - name: tmp
         emptyDir: {}
 ---

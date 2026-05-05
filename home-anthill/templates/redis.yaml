@@ -1,10 +1,11 @@
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: redis-config
+  name: redis-secret
   namespace: {{ .Values.namespace }}
-data:
+type: Opaque
+stringData:
   redis.conf: |-
     # Enable Redis persistence on the mounted /data volume.
     # RDB snapshots are enough for this deployment; AOF is left off to keep
@@ -81,7 +82,7 @@ spec:
         volumeMounts:
           - name: data
             mountPath: "/data"
-          - name: redis-config
+          - name: redis-secret
             mountPath: /usr/local/etc/redis/redis.conf
             subPath: redis.conf
             readOnly: true
@@ -91,9 +92,9 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: redis-data-claim
-        - name: redis-config
-          configMap:
-            name: redis-config
+        - name: redis-secret
+          secret:
+            secretName: redis-secret
         - name: tmp
           emptyDir: {}
 ---
