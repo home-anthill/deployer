@@ -6,10 +6,17 @@ metadata:
   namespace: {{ .Values.namespace }}
 data:
   redis.conf: |-
-    # Disable RDB snapshots — Redis is used as a cache, persistence is not needed.
-    # This avoids MISCONF errors when the hostPath volume is not writable.
-    save ""
-    protected-mode no
+    # Enable Redis persistence on the mounted /data volume.
+    # RDB snapshots are enough for this deployment; AOF is left off to keep
+    # writes smaller and simpler on a single-node k3s setup.
+    save 900 1
+    save 300 10
+    save 60 10000
+    # Keep protected mode enabled; in-cluster access is still allowed through
+    # the Service and authenticated ACL users, while accidental external access
+    # stays blocked by Redis itself.
+    protected-mode yes
+    appendonly no
     bind 0.0.0.0
     user {{ .Values.redis.username }} on >{{ .Values.redis.password }} ~* +@all
     user default off

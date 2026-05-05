@@ -239,12 +239,7 @@ spec:
     ports:
     - port: 80
       protocol: TCP
-  # MongoDB Atlas (external) + GitHub OAuth2 (external)
-  - ports:
-    - port: 27017
-      protocol: TCP
-    - port: 443
-      protocol: TCP
+  # External egress is restricted by Cilium FQDN policy.
 
 ---
 # 6. admission-nginx (NGINX sidecar): receives traffic from NGF on :80.
@@ -320,10 +315,7 @@ spec:
     ports:
     - port: 80
       protocol: TCP
-  # MongoDB Atlas (external)
-  - ports:
-    - port: 27017
-      protocol: TCP
+  # External egress is restricted by Cilium FQDN policy.
 
 ---
 # 8. api-devices: receives gRPC from api-server and admission on :50051.
@@ -364,10 +356,7 @@ spec:
       protocol: TCP
     - port: 8883
       protocol: TCP
-  # MongoDB Atlas (external)
-  - ports:
-    - port: 27017
-      protocol: TCP
+  # External egress is restricted by Cilium FQDN policy.
 
 ---
 # 9. register: receives HTTP from admission and api-server on :80.
@@ -398,11 +387,8 @@ spec:
     ports:
     - port: 80
       protocol: TCP
-  # MongoDB Atlas (external)
-  egress:
-  - ports:
-    - port: 27017
-      protocol: TCP
+  # External egress is restricted by Cilium FQDN policy.
+  egress: []
 
 ---
 # 10. online: receives HTTP from api-server on :80 and kubelet probe on :80.
@@ -478,10 +464,7 @@ spec:
     ports:
     - port: 6379
       protocol: TCP
-  # MongoDB Atlas (external)
-  - ports:
-    - port: 27017
-      protocol: TCP
+  # External egress is restricted by Cilium FQDN policy.
 
 ---
 # 12. online-alarm: no service callers; kubelet health probe on :80.
@@ -513,10 +496,7 @@ spec:
     ports:
     - port: 6379
       protocol: TCP
-  # Firebase Cloud Messaging (external HTTPS)
-  - ports:
-    - port: 443
-      protocol: TCP
+  # External egress is restricted by Cilium FQDN policy.
 
 ---
 # 13. producer: no inbound callers, no health probes.
@@ -572,10 +552,7 @@ spec:
     ports:
     - port: 5672
       protocol: TCP
-  # MongoDB Atlas (external)
-  - ports:
-    - port: 27017
-      protocol: TCP
+  # External egress is restricted by Cilium FQDN policy.
 
 ---
 # 15. mosquitto: receives MQTT from NGF (ESP32 devices via TCPRoute) and from

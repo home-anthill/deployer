@@ -28,6 +28,8 @@ letsencrypt:
   #   env: "staging"
   #   path: "https://acme-staging-v02.api.letsencrypt.org/directory"
 
+storageClassName: "local-path"
+
 # dhi.io hardened image registry credentials
 # ATTENTION: you must use your Dockerhub credentials here
 dhi:
@@ -44,7 +46,7 @@ alpine:
   resources:
     requests:
       cpu: "5m"
-      memory: "16Mi"
+      memory: "16Mi"  
     limits:
       cpu: "50m"
       memory: "32Mi"
@@ -143,7 +145,7 @@ smokeTests:
   image: "alpine:3.20"
   resources:
     requests:
-      cpu: "10m"
+      cpu: "5m"
       memory: "32Mi"
     limits:
       cpu: "200m"

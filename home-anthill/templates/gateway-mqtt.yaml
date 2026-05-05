@@ -26,14 +26,25 @@ spec:
   - name: http
     port: 80
     protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        # Same-namespace attachment keeps TCPRoute and HTTPRoute binding constrained to
+        # the chart namespace, which matches how this Gateway is deployed today.
+        from: Same
   # Raw TCP listener; Mosquitto handles TLS termination internally.
   - name: mqtts
     port: 8883
     protocol: TCP
+    allowedRoutes:
+      namespaces:
+        from: Same
   {{- else }}
   - name: mqtt
     port: 1883
     protocol: TCP
+    allowedRoutes:
+      namespaces:
+        from: Same
   {{- end }}
 ---
 # TCPRoute forwards all TCP connections on the MQTT listener to the Mosquitto service.

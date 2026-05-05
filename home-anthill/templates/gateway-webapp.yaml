@@ -17,6 +17,11 @@ spec:
   - name: http
     port: 80
     protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        # Same-namespace attachment is enough here because every HTTPRoute for this Gateway
+        # is defined in the home-anthill namespace and there is no cross-namespace routing model.
+        from: Same
   {{- if .Values.domains.http.ssl.enable }}
   - name: https
     port: 443
@@ -30,6 +35,9 @@ spec:
         nginx.org/ssl-protocols: "TLSv1.2 TLSv1.3"
         nginx.org/ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305"
         nginx.org/ssl-prefer-server-ciphers: "on"
+    allowedRoutes:
+      namespaces:
+        from: Same
   - name: https-www
     port: 443
     protocol: HTTPS
@@ -42,6 +50,9 @@ spec:
         nginx.org/ssl-protocols: "TLSv1.2 TLSv1.3"
         nginx.org/ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305"
         nginx.org/ssl-prefer-server-ciphers: "on"
+    allowedRoutes:
+      namespaces:
+        from: Same
   {{- end }}
 {{- if .Values.domains.http.ssl.enable }}
 ---

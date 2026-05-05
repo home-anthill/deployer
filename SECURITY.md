@@ -2,6 +2,8 @@
 
 Audit of the `home-anthill` Helm chart (`home-anthill/`).
 
+Last reviewed against chart templates and `values.yaml`: 2026-05-05.
+
 ## Original Issues
 
 | # | Severity | Issue | Status |
@@ -14,7 +16,7 @@ Audit of the `home-anthill` Helm chart (`home-anthill/`).
 | #6 | High | No `resources` limits/requests on any container | ✅ Fixed — added to all containers, configurable in `values.yaml` |
 | #7 | High | `hostPath` volumes for Redis and Mosquitto data | 🔴 Open |
 | #8 | High | `k8s-config-reloader` sidecar runs as root (`runAsNonRoot: false`) | ✅ Mitigated — `runAsUser: 0` is now explicit (required for cross-process SIGKILL); all other containers run as non-root |
-| #9 | High | Reused Rocket Framework `secret_key` across register, online, online-alarm, online-receiver | 🔴 Open |
+| #9 | High | Reused Rocket Framework `secret_key` across register, online, online-alarm, online-receiver | ✅ Fixed — `register`, `online`, `online-receiver`, and `online-alarm` now have distinct `rocketSecretKey.release` values in `values.yaml` |
 | #11 | High | No NetworkPolicies | ✅ Fixed — 17 policies added, 18 when SSL is enabled, toggle in `values.yaml` |
 | #12 | Medium | No Pod Security Standards labels on namespace | ✅ Fixed — namespace enforces `baseline` and audits/warns on `restricted` |
 | #13 | Medium | No `ResourceQuota` or `LimitRange` | 🔴 Open |
@@ -54,4 +56,17 @@ Audit of the `home-anthill` Helm chart (`home-anthill/`).
 
 ## Summary
 
-**27 fixed / not issues · 7 open** (1 Critical · 2 High · 3 Medium · 1 Low remaining)
+**28 fixed / not issues · 6 open** (1 Critical · 1 High · 3 Medium · 1 Low remaining)
+
+## Current Open Issue Review
+
+Reviewed on 2026-05-05:
+
+| # | Status | Evidence |
+|---|--------|----------|
+| #2 | 🔴 Still open | Sensitive values are still rendered into ConfigMaps, for example `MONGODB_URL`, Redis/MQTT passwords, OAuth secrets, JWT secrets, cookie secret, AMQP URI/HMAC secret, and Rocket `secret_key` in `home-anthill/templates/*.yaml`. |
+| #7 | 🔴 Still open | Redis and Mosquitto still use static PVs backed by `hostPath` in `home-anthill/templates/redis-pv.yaml` and `home-anthill/templates/mosquitto-pv.yaml`. |
+| #13 | 🔴 Still open | No `ResourceQuota` or `LimitRange` templates are present. Container-level requests/limits exist, but namespace quota/default limit objects are still absent. |
+| #18 | 🔴 Still open | `home-anthill/templates/redis.yaml` still renders `protected-mode no` and `bind 0.0.0.0`; this remains partially mitigated by NetworkPolicy only. |
+| #19 | 🔴 Still open | `debug.pods.sleepInfinity` still exists in `values.yaml` and is wired into multiple workload templates. Default is `false`, but the debug override remains available. |
+| N6 | 🔴 Still open | `Gateway` listeners in `gateway-webapp.yaml` and `gateway-mqtt.yaml` still do not set explicit `allowedRoutes`; routes are therefore not constrained at listener level. |

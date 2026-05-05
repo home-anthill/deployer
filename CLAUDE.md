@@ -67,15 +67,17 @@ The chart deploys dozens of resources to a Kubernetes cluster, organized into th
 - `producer` / `consumer` - RabbitMQ publish/consume services
 
 **Data tier**
-- `redis` - in-cluster cache; `redis-pv.yaml` provisions a 2Gi `hostPath` PersistentVolume + PVC
+- `redis` - in-cluster cache; `redis-pvc.yaml` provisions a 2Gi PVC bound through the chart `storageClassName` value
 - MongoDB - external (Atlas Cloud), referenced by `values.mongodbUrl`
-- `mosquitto-pv.yaml` - 2Gi `hostPath` PersistentVolume + PVC for Mosquitto data
+- `mosquitto-pvc.yaml` - 2Gi PVC bound through the chart `storageClassName` value for Mosquitto data
 
 **Infrastructure**
 - `gateway-webapp.yaml` - `Gateway` + `HTTPRoute` (HTTP->HTTPS 301 redirect when SSL on) + `HTTPRoute` (routes `/admission` -> admission-nginx-svc, `/` -> gui-svc) + Gateway-level security headers (`Strict-Transport-Security` when SSL is on, `X-Frame-Options`, `X-Content-Type-Options`, `Permissions-Policy`) + `ClientSettingsPolicy` (100 MiB max request body) + `SnippetsFilter` (100 req/s rate limit) + `Issuer` + `Certificate` for Let's Encrypt
-- `gateway-mqtt.yaml` - `Gateway` + `TCPRoute` for raw TCP MQTT/MQTTS; a separate HTTP listener exists solely for the Let's Encrypt HTTP-01 ACME challenge; explicit `Certificate` resource (not the cert-manager Gateway shim) to avoid duplicate `parentRef` errors
+- `gateway-mqtt.yaml` - `Gateway` + `TCPRoute` for raw TCP MQTT/MQTTS; a separate HTTP listener exists solely for the Let's Encrypt HTTP-01 ACME challenge; explicit `Certificate` resource (not the cert-manager Gateway shim) to avoid duplicate `parentRef` errors; listener `allowedRoutes.namespaces.from: Same` is set on every listener
 - `cilium.yaml` - `CiliumLoadBalancerIPPool` (assigns public IPs from a `/32` block per gateway) + `CiliumL2AnnouncementPolicy` (ARP broadcasts on `eth0` for LoadBalancer IPs); replaces the MetalLB approach
+- `cilium-egress.yaml` - `CiliumNetworkPolicy` rules for external FQDN egress to GitHub, MongoDB Atlas, and Google/Firebase; DNS visibility is explicitly allowed so FQDN rules can resolve correctly
 - `network-policy.yaml` - 17-18 `NetworkPolicy` resources implementing default-deny-all with explicit per-service allow rules; controlled by `network.enabled`; see `NETWORK_POLICIES.md` for the full communication matrix and design rationale
+- `namespace-guardrails.yaml` - namespace `ResourceQuota` and `LimitRange` objects to cap total usage and set sane per-container defaults/minimums
 
 ## Key Files
 
@@ -102,6 +104,7 @@ The chart deploys dozens of resources to a Kubernetes cluster, organized into th
 | `redis` | Image (standard + hardened variants), service name, data path, auth credentials |
 | `rabbitmq` | Image, admin/producer/consumer credentials, AMQP HMAC secret |
 | `mongodbUrl` | External MongoDB Atlas connection string |
+| `storageClassName` | Storage class used by Redis and Mosquitto PVCs (`local-path` by default in this repo) |
 | `gui` / `apiServer` / `apiDevices` / `admission` / `register` / `producer` / `consumer` / `online` / `onlineReceiver` / `onlineAlarm` | Per-service image tag, service name where applicable, and service-specific secrets |
 | `apiServer` | Also: `singleUserLoginEmail`, JWT/cookie secrets, `refreshTokenHashSecret`, OAuth2 client IDs for web + Android app, `sensors.enable` |
 | `onlineAlarm` | Also: `firebaseServiceAccount` (full Firebase service account JSON, rendered into a Secret) |
@@ -129,6 +132,8 @@ All service images are pulled from Docker Hub (`ks89/<service>:<tag>`).
 
 **Security headers split by layer** — `gateway-webapp.yaml` sets Gateway-level browser hardening headers; `gui.yaml` and `admission.yaml` set `Referrer-Policy` and `Content-Security-Policy` in their NGINX ConfigMaps. CSP is kept at NGINX because the Gateway response-header filter is too coarse for this use case.
 
+**Gateway route scoping** — `gateway-webapp.yaml` and `gateway-mqtt.yaml` set `allowedRoutes.namespaces.from: Same` on all listeners. That keeps route attachment inside the `home-anthill` namespace because this chart does not use cross-namespace routing.
+
 **RabbitMQ Operator CRDs** — `rabbitmq.yaml` uses `RabbitmqCluster` (not a Deployment), plus `User` and `Permission` resources. The `Permission` resources enforce queue-level ACLs: the producer is scoped to `ks89` / `amq.default` publishing and `ks89` queue access; the consumer has no write permission and can configure/read only `^ks89$`.
 
 **cert-manager for MQTT** — `gateway-mqtt.yaml` uses an explicit `Certificate` resource (not the cert-manager Gateway shim) because the MQTT Gateway has no TLS listener (Mosquitto handles TLS termination itself); the explicit cert avoids the Gateway shim trying to add a conflicting `parentRef`.
@@ -136,6 +141,8 @@ All service images are pulled from Docker Hub (`ks89/<service>:<tag>`).
 **Admission NGINX proxy** — `admission.yaml` defines two Deployments: the admission service and an NGINX proxy deployment. The Gateway routes `/admission` to `admission-nginx-svc`, which forwards to `admission-svc` inside the namespace.
 
 **Deployment smoke tests** — `templates/tests/smoke-test.yaml` defines Helm test hooks. Run `helm test home-anthill -n default` after install/upgrade to validate GUI, API server, online service, Redis auth, Mosquitto auth, and RabbitMQ management auth. The test uses a temporary Secret with `secretKeyRef` env vars; credentials are not embedded in the Job command arguments. The hook also creates temporary NetworkPolicies for the smoke-test pod and removes them on success.
+
+**MongoDB FQDN egress** — `cilium-egress.yaml` allows external MongoDB Atlas access by FQDN, not by raw port-only egress. The policy includes DNS visibility for `kube-dns` and Atlas hostname patterns so SRV records and shard targets can resolve correctly.
 
 ## Deployment Env Audit
 
@@ -146,5 +153,6 @@ Watch these deployment-sensitive details when updating services:
 - `api-server` OAuth callbacks must stay aligned with the Gin routes: `/api/oauth/callback` and `/api/oauth/app/callback`.
 - `api-server.cookieSecret` must be at least 32 characters; startup rejects shorter values.
 - `api-server.refreshTokenHashSecret` is rendered as `REFRESH_TOKEN_HASH_SECRET` for HMAC hashing of opaque refresh/app-login tokens. The code has a fallback, but deployments should set it explicitly.
+- `redis` now runs with `protected-mode yes` and uses a PVC backed by `storageClassName`; do not reintroduce `hostPath` PVs in this chart.
 - MQTT auth uses role-specific values under `mosquitto.auth.users`: `device`, `producer`, `onlineReceiver`, and `apiDevices`.
 - `register.mongo_max_retries`, `online.redis_username`, `online.redis_password`, and `onlineAlarm.fcm_service_account_key_path` have code defaults or chart-provided defaults; absence is intentional only where the service struct marks the field optional/defaulted.

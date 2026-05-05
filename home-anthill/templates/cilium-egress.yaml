@@ -1,0 +1,101 @@
+{{- if .Values.network.enabled }}
+# Cilium FQDN-based egress restrictions for external services.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-api-server-github-egress
+  namespace: {{ .Values.namespace }}
+spec:
+  endpointSelector:
+    matchLabels:
+      app: api-server
+  egress:
+  - toFQDNs:
+    # to allow github oAuth 2 login
+    - matchName: github.com
+    - matchName: api.github.com
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-atlas-mongodb-egress
+  namespace: {{ .Values.namespace }}
+spec:
+  endpointSelector:
+    matchExpressions:
+    - key: app
+      operator: In
+      values:
+      - admission
+      - api-server
+      - api-devices
+      - consumer
+      - online-receiver
+      - register
+  egress:
+  # Cilium's FQDN policy needs DNS responses for these pods so it can map
+  # allowed names to IPs before the MongoDB driver opens TCP connections.
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+      rules:
+        dns:
+        - matchPattern: "*"
+  - toFQDNs:
+    # Atlas SRV records and shard targets can sit at different subdomain depths.
+    # Atlas clusters can use ports 27015-27017 for client traffic.
+    - matchPattern: "*.mongodb.net"
+    - matchPattern: "*.*.mongodb.net"
+    - matchPattern: "*.*.*.mongodb.net"
+    toPorts:
+    - ports:
+      - port: "27015"
+        protocol: TCP
+      - port: "27016"
+        protocol: TCP
+      - port: "27017"
+        protocol: TCP
+
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-online-alarm-google-egress
+  namespace: {{ .Values.namespace }}
+spec:
+  endpointSelector:
+    matchLabels:
+      app: online-alarm
+  egress:
+  # Cilium's FQDN policy needs DNS responses for this pod so it can map
+  # Google/Firebase hostnames to IPs before opening HTTPS connections.
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+      rules:
+        dns:
+        - matchPattern: "*"
+  - toFQDNs:
+    # to allow FCM APIs
+    - matchPattern: "*.googleapis.com"
+    - matchName: accounts.google.com
+    toPorts:
+    - ports:
+      - port: "443"
+        protocol: TCP
+{{- end }}

@@ -28,6 +28,9 @@ Issues reference the audit table in [SECURITY.md](SECURITY.md).
 ### Network
 
 - Added 17–18 `NetworkPolicy` resources implementing default-deny-all ingress + egress with explicit per-service allow rules; controlled by `network.enabled` in `values.yaml`
+- Restricted external egress with Cilium FQDN policies for GitHub, MongoDB Atlas, and Google/Firebase destinations, and removed the port-only `443` / `27017` fallbacks from the standard Kubernetes `NetworkPolicy` objects
+- Fixed MongoDB Atlas egress to allow client traffic on ports 27015-27017, added explicit DNS visibility for Cilium FQDN policy, and matched multi-level Atlas `mongodb.net` hostnames used by SRV records and shard targets
+- Fixed online-alarm FCM egress by adding explicit DNS visibility to the Google/Firebase Cilium FQDN policy before allowing HTTPS to `*.googleapis.com` and `accounts.google.com`
 - Added Helm test hook NetworkPolicies for the deployment smoke-test Job so it can reach only the services it validates during `helm test`
 - Added `Strict-Transport-Security: max-age=31536000; includeSubDomains` to all HTTPS `ResponseHeaderModifier` blocks in the webapp Gateway (SSL branch only)
 - Added `ClientSettingsPolicy` to enforce a 100 MiB maximum request body on the webapp Gateway
@@ -44,6 +47,10 @@ Issues reference the audit table in [SECURITY.md](SECURITY.md).
 - Added `resources.requests` and `resources.limits` (CPU + memory) to every container, configurable in `values.yaml`
 - Added Pod Security Admission labels to the namespace: enforce `baseline`, audit/warn `restricted`
 - Added explicit `REFRESH_TOKEN_HASH_SECRET` rendering for `api-server` so refresh/app-login token lookup hashes use a dedicated deployment secret instead of relying on fallback JWT secrets
+- Added namespace guardrails with `ResourceQuota` and `LimitRange` to bound total namespace usage and provide sane default per-container requests/limits
+- Added explicit Gateway listener `allowedRoutes.namespaces.from: Same` on webapp and MQTT Gateways so only same-namespace routes can attach
+- Switched Redis to `protected-mode yes` while keeping ACL auth enabled, so Redis remains service-reachable but is no longer configured in the broadest mode
+- Replaced Redis and Mosquitto `hostPath` PersistentVolumes with `local-path` PVCs, removing direct node-path bindings from the chart while keeping single-node k3s storage simple
 
 ---
 
@@ -57,8 +64,6 @@ Issues reference the audit table in [SECURITY.md](SECURITY.md).
 - Fixed `imagePullPolicy: Always` missing on RabbitMQ
 - Fixed `api-server` deployment env drift: OAuth callback URLs now match `/api/oauth/callback` and `/api/oauth/app/callback`, and the default `COOKIE_SECRET` placeholder satisfies the current 32-character startup validation
 
----
-
 ## Infrastructure
 
 - Replaced MetalLB with Cilium for bare-metal load balancing: added `CiliumLoadBalancerIPPool` and `CiliumL2AnnouncementPolicy`; removed MetalLB `IPAddressPool` and `L2Advertisement` resources
@@ -69,6 +74,8 @@ Issues reference the audit table in [SECURITY.md](SECURITY.md).
 
 ## Reliability
 
+- Enabled Redis persistence with RDB snapshots on the mounted `/data` volume, so Redis state now survives pod restarts instead of being treated as disposable cache data
+- Raised the small workload CPU requests from `5m` to `10m` so they satisfy the namespace `LimitRange` minimum and can actually be scheduled
 - Added liveness/readiness probes to `admission-nginx`
 - Added liveness/readiness probes to `online-receiver` (Rocket HTTP health server)
 - Added Helm deployment smoke tests for GUI, API server, online service, Redis auth, Mosquitto auth, and RabbitMQ management auth
