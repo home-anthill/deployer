@@ -21,6 +21,7 @@
 #   producer         → mosquitto    :1883      (MQTT subscribe sensor topics, internal service)
 #   producer         → rabbitmq     :5672   (AMQP publish)
 #   consumer         → rabbitmq     :5672   (AMQP consume)
+#   consumer         → redis        :6379   (signed nonce replay cache)
 #   consumer         → MongoDB Atlas          (external :27017)
 #   online-receiver  → mosquitto    :1883      (MQTT subscribe online topics, internal service)
 #   online-receiver  → redis        :6379
@@ -532,7 +533,7 @@ spec:
 
 ---
 # 14. consumer: no inbound callers, no health probes.
-#     Egress: rabbitmq (AMQP :5672), MongoDB Atlas (:27017).
+#     Egress: rabbitmq (AMQP :5672), redis (:6379), MongoDB Atlas (:27017).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -551,6 +552,13 @@ spec:
           app.kubernetes.io/name: rabbitmq
     ports:
     - port: 5672
+      protocol: TCP
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - port: 6379
       protocol: TCP
   # External egress is restricted by Cilium FQDN policy.
 
@@ -606,7 +614,7 @@ spec:
       protocol: TCP
 
 ---
-# 16. redis: receives connections from online, online-receiver, online-alarm.
+# 16. redis: receives connections from online, online-receiver, online-alarm, consumer.
 #     Kubelet TCP socket health probes use nodesCIDR.
 #     No egress needed — it is a pure cache.
 apiVersion: networking.k8s.io/v1
@@ -631,6 +639,9 @@ spec:
     - podSelector:
         matchLabels:
           app: online-alarm
+    - podSelector:
+        matchLabels:
+          app: consumer
     ports:
     - port: 6379
       protocol: TCP

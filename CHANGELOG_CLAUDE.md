@@ -28,6 +28,7 @@ Issues reference the audit table in [SECURITY.md](SECURITY.md).
 ### Network
 
 - Added 17–18 `NetworkPolicy` resources implementing default-deny-all ingress + egress with explicit per-service allow rules; controlled by `network.enabled` in `values.yaml`
+- Added Redis network access for `consumer` so signed MQTT nonce replay protection can use the shared Redis replay cache (`consumer -> redis:6379`, and Redis ingress from `consumer`).
 - Restricted external egress with Cilium FQDN policies for GitHub, MongoDB Atlas, and Google/Firebase destinations, and removed the port-only `443` / `27017` fallbacks from the standard Kubernetes `NetworkPolicy` objects
 - Fixed MongoDB Atlas egress to allow client traffic on ports 27015-27017, added explicit DNS visibility for Cilium FQDN policy, and matched multi-level Atlas `mongodb.net` hostnames used by SRV records and shard targets
 - Fixed online-alarm FCM egress by adding explicit DNS visibility to the Google/Firebase Cilium FQDN policy before allowing HTTPS to `*.googleapis.com` and `accounts.google.com`
@@ -46,11 +47,13 @@ Issues reference the audit table in [SECURITY.md](SECURITY.md).
 - Added dedicated `ServiceAccount` per workload (13 total); controlled by `serviceAccounts.enabled` in `values.yaml`
 - Added `resources.requests` and `resources.limits` (CPU + memory) to every container, configurable in `values.yaml`
 - Added Pod Security Admission labels to the namespace: enforce `baseline`, audit/warn `restricted`
+- Moved sensitive runtime config from ConfigMaps to Secrets for `api-server`, `register`, `online`, `online-alarm`, `producer`, `consumer`, `api-devices`, `admission`, `online-receiver`, and `redis`, while keeping the same mounted file paths so no container rebuild was needed
 - Added explicit `REFRESH_TOKEN_HASH_SECRET` rendering for `api-server` so refresh/app-login token lookup hashes use a dedicated deployment secret instead of relying on fallback JWT secrets
 - Added namespace guardrails with `ResourceQuota` and `LimitRange` to bound total namespace usage and provide sane default per-container requests/limits
 - Added explicit Gateway listener `allowedRoutes.namespaces.from: Same` on webapp and MQTT Gateways so only same-namespace routes can attach
 - Switched Redis to `protected-mode yes` while keeping ACL auth enabled, so Redis remains service-reachable but is no longer configured in the broadest mode
 - Replaced Redis and Mosquitto `hostPath` PersistentVolumes with `local-path` PVCs, removing direct node-path bindings from the chart while keeping single-node k3s storage simple
+- Added `REDIS_URI`, `REDIS_USERNAME`, and `REDIS_PASSWORD` to the consumer Secret-backed runtime config for Redis-backed signed nonce replay protection.
 
 ---
 

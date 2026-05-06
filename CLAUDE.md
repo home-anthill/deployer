@@ -58,13 +58,13 @@ The chart deploys dozens of resources to a Kubernetes cluster, organized into th
 - `api-devices` - gRPC service for IoT device management and MQTT command publishing
 - `register` - Rust/Rocket service for sensor registration (MongoDB)
 - `online` - Rust/Rocket service tracking device online status (Redis); exposes FCM token management
-- `online-receiver` - MQTT -> Redis bridge; no Service resource (inbound data comes from MQTT; HTTP port is for probes)
+- `online-receiver` - MQTT -> Redis bridge; no Service resource (inbound data comes from MQTT; HTTP port is for probes). It also uses Redis as a signed MQTT nonce replay cache.
 - `online-alarm` - polls Redis for offline devices, sends FCM push notifications
 
 **Messaging tier**
 - `rabbitmq` - AMQP broker managed by RabbitMQ Operator (`RabbitmqCluster` CRD); 3 users: `admin` (full access), `producer` (scoped to `ks89` / `amq.default` publishing and `ks89` queue access), `consumer` (no writes, scoped to `^ks89$` configure/read)
 - `mosquitto` - MQTT broker; when SSL is enabled, a **`k8s-config-reloader` sidecar** watches the TLS cert Secret and signals Mosquitto on cert rotation
-- `producer` / `consumer` - RabbitMQ publish/consume services
+- `producer` / `consumer` - RabbitMQ publish/consume services. `consumer` also connects to Redis for signed MQTT nonce replay protection before MongoDB writes.
 
 **Data tier**
 - `redis` - in-cluster cache; `redis-pvc.yaml` provisions a 2Gi PVC bound through the chart `storageClassName` value
@@ -128,7 +128,11 @@ All service images are pulled from Docker Hub (`ks89/<service>:<tag>`).
 
 **Default values are placeholders** — Do not report sample credentials or secrets in `home-anthill/values.yaml` as a hardcoded-secret issue by themselves. Production deployments override these values through an external private values file passed to Helm. Only flag this area if a real secret is committed outside the placeholder defaults, a template prevents private overrides, or a rendered manifest exposes sensitive values through an inappropriate Kubernetes object.
 
-**Rocket.toml as ConfigMap** — `register.yaml`, `online.yaml`, `online-alarm.yaml`: Rocket framework config (port, address, `secret_key`, database pool URL) is mounted as a ConfigMap subPath at `/app/Rocket.toml`. The `secret_key` comes from `values.yaml` and must be a base64-encoded 256-bit key (`openssl rand -base64 32`).
+**Secret-backed app config** — `api-server.yaml`, `register.yaml`, `online.yaml`, `online-alarm.yaml`, `consumer.yaml`, `producer.yaml`, `api-devices.yaml`, `admission.yaml`, and `online-receiver.yaml` mount their runtime config from Secrets rather than ConfigMaps. Keep the on-disk file paths stable when updating these charts so the containers do not need image changes. `consumer.yaml` must render `REDIS_URI`, `REDIS_USERNAME`, and `REDIS_PASSWORD` because consumer uses Redis for signed nonce replay protection.
+
+**Redis config secret** — `redis.yaml` mounts `redis.conf` from a Secret because the ACL line contains the Redis username and password. The file still lands at `/usr/local/etc/redis/redis.conf`; only the Kubernetes object type changed.
+
+**Signed nonce replay cache** — `consumer` and `online-receiver` use Redis keys shaped as `signed-replay:v1:{device_uuid}:{feature_uuid}:{nonce}` with `SET NX EX` after signed MQTT HMAC verification. NetworkPolicy must allow `consumer` egress to Redis and Redis ingress from `consumer`, in addition to the existing online services.
 
 **Security headers split by layer** — `gateway-webapp.yaml` sets Gateway-level browser hardening headers; `gui.yaml` and `admission.yaml` set `Referrer-Policy` and `Content-Security-Policy` in their NGINX ConfigMaps. CSP is kept at NGINX because the Gateway response-header filter is too coarse for this use case.
 
@@ -154,5 +158,7 @@ Watch these deployment-sensitive details when updating services:
 - `api-server.cookieSecret` must be at least 32 characters; startup rejects shorter values.
 - `api-server.refreshTokenHashSecret` is rendered as `REFRESH_TOKEN_HASH_SECRET` for HMAC hashing of opaque refresh/app-login tokens. The code has a fallback, but deployments should set it explicitly.
 - `redis` now runs with `protected-mode yes` and uses a PVC backed by `storageClassName`; do not reintroduce `hostPath` PVs in this chart.
+- `redis-config` must stay Secret-backed because it contains the Redis ACL username/password line.
+- `consumer` requires Redis env vars and Redis network access for signed MQTT nonce replay protection; do not remove the `consumer -> redis:6379` egress or `redis <- consumer` ingress rules.
 - MQTT auth uses role-specific values under `mosquitto.auth.users`: `device`, `producer`, `onlineReceiver`, and `apiDevices`.
 - `register.mongo_max_retries`, `online.redis_username`, `online.redis_password`, and `onlineAlarm.fcm_service_account_key_path` have code defaults or chart-provided defaults; absence is intentional only where the service struct marks the field optional/defaulted.

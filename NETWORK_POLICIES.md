@@ -43,9 +43,9 @@ The chart deploys 17 policies with SSL disabled, or 18 when SSL is enabled.
 | 11 | `allow-online-receiver` | `app: online-receiver` | kubelet on 80 | mosquitto:1883, redis:6379 |
 | 12 | `allow-online-alarm` | `app: online-alarm` | kubelet on 80 | redis:6379, ext:443 |
 | 13 | `allow-producer` | `app: producer` | none | mosquitto:1883, rabbitmq:5672 |
-| 14 | `allow-consumer` | `app: consumer` | none | rabbitmq:5672, ext:27017 |
+| 14 | `allow-consumer` | `app: consumer` | none | rabbitmq:5672, redis:6379, ext:27017 |
 | 15 | `allow-mosquitto` | `app: mosquitto` | NGF + api-devices + producer + online-receiver on 1883/8883; kubelet on 1883 | none |
-| 16 | `allow-redis` | `app: redis` | online + online-receiver + online-alarm + kubelet on 6379 | none |
+| 16 | `allow-redis` | `app: redis` | online + online-receiver + online-alarm + consumer + kubelet on 6379 | none |
 | 17 | `allow-rabbitmq` | `app.kubernetes.io/name: rabbitmq` | producer + consumer on 5672, operator on 5672/15672 | none |
 | 18 | `allow-cert-manager-solver` (SSL only) | `acme.cert-manager.io/http01-solver: "true"` | NGF on 8089 | none |
 
@@ -223,7 +223,7 @@ Rust service bridging MQTT messages to RabbitMQ.
 Rust service consuming from RabbitMQ and persisting sensor data to MongoDB.
 
 - **Ingress**: None — pure outbound worker with no health probes.
-- **Egress**: To `rabbitmq:5672` (AMQP consume) and MongoDB Atlas (port 27017).
+- **Egress**: To `rabbitmq:5672` (AMQP consume), `redis:6379` (signed nonce replay cache), and MongoDB Atlas (port 27017).
 
 ### Data Tier
 
@@ -238,9 +238,9 @@ When SSL is enabled, a `k8s-config-reloader` sidecar runs alongside Mosquitto. I
 
 #### 16. `allow-redis`
 
-In-cluster Redis cache for device online status.
+In-cluster Redis cache for device online status and signed nonce replay protection.
 
-- **Ingress**: From `online`, `online-receiver`, and `online-alarm` on port 6379.
+- **Ingress**: From `online`, `online-receiver`, `online-alarm`, and `consumer` on port 6379.
 - **Egress**: None — Redis is a pure cache that only responds to incoming connections.
 
 #### 17. `allow-rabbitmq`
@@ -409,6 +409,7 @@ Several policies allow egress to external services using bare `ports` rules (no 
 | api-devices | 27017 | MongoDB Atlas |
 | register | 27017 | MongoDB Atlas |
 | consumer | 27017 | MongoDB Atlas |
+| consumer | 6379 | Redis |
 | online-alarm | 443 | Google FCM |
 
 These rules are intentionally broad because the IP ranges for cloud services (MongoDB Atlas, GitHub, Google) are dynamic and change over time. Pinning them to specific CIDRs would require ongoing maintenance and risk breaking connectivity.
