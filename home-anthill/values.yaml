@@ -30,6 +30,12 @@ letsencrypt:
 
 storageClassName: "local-path"
 
+apiToken:
+  # default values, please replace these with your custom values file
+  hashSecret: "G93PshGUp7Z3pt8dJuC.*PyFrgRq7KG!"
+  # 32-byte raw string or base64/base64url-encoded 32-byte AES-GCM key
+  encryptionKey: "HJMjry6eDjZ2Atu-N-Dt-Z_G9ThXL4TP"
+
 # dhi.io hardened image registry credentials
 # ATTENTION: you must use your Dockerhub credentials here
 dhi:
@@ -211,7 +217,7 @@ apiServer:
   image: "ks89/api-server:develop"
   serviceName: api-server-svc
   # default values, please replace all those values with your custom values file
-  singleUserLoginEmail: "your.email@emailexample.com"
+  limitToUserEmails: "your.email@emailexample.com,other.email@emailexample.com"
   jwtPassword: "D%$ZmPh@6WMc$=@!a-pQaa_+?zu4+3iF"
   jwtRefreshPassword: "ZnUcqcJyZTMJMNa@@xu8ZirQskM.yt!C"
   refreshTokenHashSecret: "@4DnwfN@H-qNMJ2dxPoXZ_Q7ooDCyqCm"

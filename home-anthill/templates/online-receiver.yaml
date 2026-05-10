@@ -12,6 +12,8 @@ stringData:
     REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379
     REDIS_USERNAME={{ .Values.redis.username }}
     REDIS_PASSWORD={{ .Values.redis.password }}
+    API_TOKEN_HASH_SECRET={{ .Values.apiToken.hashSecret }}
+    API_TOKEN_ENCRYPTION_KEY={{ .Values.apiToken.encryptionKey }}
     MQTT_URL={{ .Values.mosquitto.serviceName }}.{{ .Values.namespace }}.svc.cluster.local
     MQTT_PORT=1883
     MQTT_TLS=false

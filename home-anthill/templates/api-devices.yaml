@@ -28,6 +28,8 @@ stringData:
     GRPC_URL=0.0.0.0:50051
     GRPC_TLS=false
     CERT_FOLDER_PATH=
+    API_TOKEN_HASH_SECRET={{ .Values.apiToken.hashSecret }}
+    API_TOKEN_ENCRYPTION_KEY={{ .Values.apiToken.encryptionKey }}
 ---
 apiVersion: apps/v1
 kind: Deployment

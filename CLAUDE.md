@@ -105,8 +105,9 @@ The chart deploys dozens of resources to a Kubernetes cluster, organized into th
 | `rabbitmq` | Image, admin/producer/consumer credentials, AMQP HMAC secret |
 | `mongodbUrl` | External MongoDB Atlas connection string |
 | `storageClassName` | Storage class used by Redis and Mosquitto PVCs (`local-path` by default in this repo) |
+| `apiToken` | Shared `hashSecret` and `encryptionKey` rendered into token-aware services as `API_TOKEN_HASH_SECRET` and `API_TOKEN_ENCRYPTION_KEY` |
 | `gui` / `apiServer` / `apiDevices` / `admission` / `register` / `producer` / `consumer` / `online` / `onlineReceiver` / `onlineAlarm` | Per-service image tag, service name where applicable, and service-specific secrets |
-| `apiServer` | Also: `singleUserLoginEmail`, JWT/cookie secrets, `refreshTokenHashSecret`, OAuth2 client IDs for web + Android app, `sensors.enable` |
+| `apiServer` | Also: `limitToUserEmails`, JWT/cookie secrets, `refreshTokenHashSecret`, OAuth2 client IDs for web + Android app, online token-rotation endpoint path, `sensors.enable` |
 | `onlineAlarm` | Also: `firebaseServiceAccount` (full Firebase service account JSON, rendered into a Secret) |
 | `serviceAccounts.enabled` | Creates `ServiceAccount` resources and binds them to pods when `true` (default: `true`) |
 | `network.enabled` | Deploys all `NetworkPolicy` resources (default: `true`; set `false` for dev/test clusters) |
@@ -130,9 +131,13 @@ All service images are pulled from Docker Hub (`ks89/<service>:<tag>`).
 
 **Secret-backed app config** — `api-server.yaml`, `register.yaml`, `online.yaml`, `online-alarm.yaml`, `consumer.yaml`, `producer.yaml`, `api-devices.yaml`, `admission.yaml`, and `online-receiver.yaml` mount their runtime config from Secrets rather than ConfigMaps. Keep the on-disk file paths stable when updating these charts so the containers do not need image changes. `consumer.yaml` must render `REDIS_URI`, `REDIS_USERNAME`, and `REDIS_PASSWORD` because consumer uses Redis for signed nonce replay protection.
 
+**API token secrets** — `apiToken.hashSecret` and `apiToken.encryptionKey` are rendered only into Kubernetes Secrets, inside the `.env` files for `api-server`, `admission`, `register`, `api-devices`, `consumer`, and `online-receiver`. Keep these values identical across those services; mismatches break token lookup, encrypted token reads, or signed-message verification.
+
 **Redis config secret** — `redis.yaml` mounts `redis.conf` from a Secret because the ACL line contains the Redis username and password. The file still lands at `/usr/local/etc/redis/redis.conf`; only the Kubernetes object type changed.
 
 **Signed nonce replay cache** — `consumer` and `online-receiver` use Redis keys shaped as `signed-replay:v1:{device_uuid}:{feature_uuid}:{nonce}` with `SET NX EX` after signed MQTT HMAC verification. NetworkPolicy must allow `consumer` egress to Redis and Redis ingress from `consumer`, in addition to the existing online services.
+
+**API token rotation path** — `api-server.yaml` renders `HTTP_ONLINE_ROTATE_APITOKEN_API=/api-token/rotate`. When `api-server` regenerates a profile token, it calls `online` with the profile's device/feature UUIDs so Redis online-state `apiToken` fields and the `fcm_by_api_token` lookup move to the regenerated token even if Redis contains a stale older token.
 
 **Security headers split by layer** — `gateway-webapp.yaml` sets Gateway-level browser hardening headers; `gui.yaml` and `admission.yaml` set `Referrer-Policy` and `Content-Security-Policy` in their NGINX ConfigMaps. CSP is kept at NGINX because the Gateway response-header filter is too coarse for this use case.
 

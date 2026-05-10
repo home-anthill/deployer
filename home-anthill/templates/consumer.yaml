@@ -17,6 +17,8 @@ stringData:
     AMQP_HMAC_SECRET={{ .Values.rabbitmq.amqpHmacSecret }}
     AMQP_QUEUE_NAME=ks89
     AMQP_CONSUMER_TAG=consumer
+    API_TOKEN_HASH_SECRET={{ .Values.apiToken.hashSecret }}
+    API_TOKEN_ENCRYPTION_KEY={{ .Values.apiToken.encryptionKey }}
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -49,11 +49,14 @@ Issues reference the audit table in [SECURITY.md](SECURITY.md).
 - Added Pod Security Admission labels to the namespace: enforce `baseline`, audit/warn `restricted`
 - Moved sensitive runtime config from ConfigMaps to Secrets for `api-server`, `register`, `online`, `online-alarm`, `producer`, `consumer`, `api-devices`, `admission`, `online-receiver`, and `redis`, while keeping the same mounted file paths so no container rebuild was needed
 - Added explicit `REFRESH_TOKEN_HASH_SECRET` rendering for `api-server` so refresh/app-login token lookup hashes use a dedicated deployment secret instead of relying on fallback JWT secrets
+- Added shared `apiToken.hashSecret` and `apiToken.encryptionKey` values, rendered as `API_TOKEN_HASH_SECRET` and `API_TOKEN_ENCRYPTION_KEY` into the Secret-backed `.env` files for `api-server`, `admission`, `register`, `api-devices`, `consumer`, and `online-receiver`.
+- Replaced the API-server GitHub login restriction value with `apiServer.limitToUserEmails`, rendered as `LIMIT_TO_USER_EMAILS`, so deployments can allow a comma-separated list of GitHub email addresses.
 - Added namespace guardrails with `ResourceQuota` and `LimitRange` to bound total namespace usage and provide sane default per-container requests/limits
 - Added explicit Gateway listener `allowedRoutes.namespaces.from: Same` on webapp and MQTT Gateways so only same-namespace routes can attach
 - Switched Redis to `protected-mode yes` while keeping ACL auth enabled, so Redis remains service-reachable but is no longer configured in the broadest mode
 - Replaced Redis and Mosquitto `hostPath` PersistentVolumes with `local-path` PVCs, removing direct node-path bindings from the chart while keeping single-node k3s storage simple
 - Added `REDIS_URI`, `REDIS_USERNAME`, and `REDIS_PASSWORD` to the consumer Secret-backed runtime config for Redis-backed signed nonce replay protection.
+- Added `HTTP_ONLINE_ROTATE_APITOKEN_API=/api-token/rotate` to the API-server runtime config so profile token regeneration can update plaintext token references held by the online service in Redis.
 
 ---
 

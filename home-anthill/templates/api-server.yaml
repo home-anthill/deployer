@@ -28,18 +28,21 @@ stringData:
     HTTP_ONLINE_PORT=80
     HTTP_ONLINE_API=/online/
     HTTP_ONLINE_FCMTOKEN_API=/fcmtoken/
+    HTTP_ONLINE_ROTATE_APITOKEN_API=/api-token/rotate
     HTTP_ONLINE_KEEPALIVE_API=/keepalive/
     GRPC_URL={{ .Values.apiDevices.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:50051
     GRPC_TLS=false
     CERT_FOLDER_PATH=
-    {{- if .Values.apiServer.singleUserLoginEmail }}
-    SINGLE_USER_LOGIN_EMAIL={{ .Values.apiServer.singleUserLoginEmail }}
+    {{- if .Values.apiServer.limitToUserEmails }}
+    LIMIT_TO_USER_EMAILS={{ .Values.apiServer.limitToUserEmails }}
     {{ else }}
-    SINGLE_USER_LOGIN_EMAIL=
+    LIMIT_TO_USER_EMAILS=
     {{ end }}
     JWT_PASSWORD={{ .Values.apiServer.jwtPassword }}
     JWT_REFRESH_PASSWORD={{ .Values.apiServer.jwtRefreshPassword }}
     REFRESH_TOKEN_HASH_SECRET={{ .Values.apiServer.refreshTokenHashSecret }}
+    API_TOKEN_HASH_SECRET={{ .Values.apiToken.hashSecret }}
+    API_TOKEN_ENCRYPTION_KEY={{ .Values.apiToken.encryptionKey }}
     COOKIE_SECRET={{ .Values.apiServer.cookieSecret }}
     INTERNAL_CLUSTER_PATH={{ .Values.apiServer.serviceName }}.{{ .Values.namespace }}.svc.cluster.local
 ---

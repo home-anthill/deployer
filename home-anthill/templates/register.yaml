@@ -10,6 +10,8 @@ stringData:
     LOG_LEVEL=info
     MONGO_URI={{ .Values.mongodbUrl }}
     MONGO_DB_NAME=sensors
+    API_TOKEN_HASH_SECRET={{ .Values.apiToken.hashSecret }}
+    API_TOKEN_ENCRYPTION_KEY={{ .Values.apiToken.encryptionKey }}
   Rocket.toml: |-
     [default]
 

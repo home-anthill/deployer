@@ -20,6 +20,8 @@ stringData:
     GRPC_URL={{ .Values.apiDevices.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:50051
     GRPC_TLS=false
     CERT_FOLDER_PATH=
+    API_TOKEN_HASH_SECRET={{ .Values.apiToken.hashSecret }}
+    API_TOKEN_ENCRYPTION_KEY={{ .Values.apiToken.encryptionKey }}
     INTERNAL_CLUSTER_PATH={{ .Values.admission.serviceName }}.{{ .Values.namespace }}.svc.cluster.local
 ---
 apiVersion: apps/v1
