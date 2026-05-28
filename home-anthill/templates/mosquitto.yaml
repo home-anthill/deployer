@@ -56,6 +56,17 @@ data:
     topic write devices/+/values
 {{- end }}
 ---
+{{- if .Values.mosquitto.auth.enable }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mosquitto-users-secret
+  namespace: {{ .Values.namespace }}
+type: Opaque
+stringData:
+  MOSQUITTO_USERS: {{ printf "%s:%s,%s:%s,%s:%s,%s:%s" .Values.mosquitto.auth.users.device.username .Values.mosquitto.auth.users.device.password .Values.mosquitto.auth.users.producer.username .Values.mosquitto.auth.users.producer.password .Values.mosquitto.auth.users.onlineReceiver.username .Values.mosquitto.auth.users.onlineReceiver.password .Values.mosquitto.auth.users.apiDevices.username .Values.mosquitto.auth.users.apiDevices.password | quote }}
+---
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -167,7 +178,10 @@ spec:
         {{- end }}
         {{- if .Values.mosquitto.auth.enable }}
         - name: MOSQUITTO_USERS
-          value: {{ printf "%s:%s,%s:%s,%s:%s,%s:%s" .Values.mosquitto.auth.users.device.username .Values.mosquitto.auth.users.device.password .Values.mosquitto.auth.users.producer.username .Values.mosquitto.auth.users.producer.password .Values.mosquitto.auth.users.onlineReceiver.username .Values.mosquitto.auth.users.onlineReceiver.password .Values.mosquitto.auth.users.apiDevices.username .Values.mosquitto.auth.users.apiDevices.password | quote }}
+          valueFrom:
+            secretKeyRef:
+              name: mosquitto-users-secret
+              key: MOSQUITTO_USERS
         {{- end }}
         ports:
         {{- if .Values.domains.mqtt.ssl.enable }}

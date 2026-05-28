@@ -1,5 +1,12 @@
 # Changelog
 
+## 6.0.1
+
+### Security
+
+- The Deployment now uses valueFrom.secretKeyRef for MOSQUITTO_USERS, and the combined MQTT credentials are rendered into a new mosquitto-users-secret Secret instead of a literal env value in the Deployment.
+
+
 ## 6.0.0
 
 ### Features

@@ -123,7 +123,6 @@ redis:
 
 # internal rabbitmq server
 rabbitmq:
-  image: "rabbitmq:4.3-management"
   # serviceName is by default 'rabbitmq'
   # use only alphanumerical passwords for rabbitmq (no special characters)
   user: "rabbitadmin"
