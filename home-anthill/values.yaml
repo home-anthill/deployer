@@ -65,7 +65,7 @@ nginx:
 
 # k8s-config-reloader
 k8sConfigReloader:
-  image: "ks89/k8s-config-reloader:develop"
+  image: "ks89/k8s-config-reloader:v1.1.1"
   resources:
     requests:
       cpu: "5m"
@@ -76,7 +76,7 @@ k8sConfigReloader:
 
 # public MQTT server
 mosquitto:
-  image: "ks89/mosquitto:develop"
+  image: "ks89/mosquitto:v4.0.0"
   serviceName: "mosquitto-svc"
   dataFolder: "/root/mosquitto-persistence-data"
   auth:
@@ -123,7 +123,7 @@ redis:
 
 # internal rabbitmq server
 rabbitmq:
-  image: "rabbitmq:4.2.4-management"
+  image: "rabbitmq:4.3-management"
   # serviceName is by default 'rabbitmq'
   # use only alphanumerical passwords for rabbitmq (no special characters)
   user: "rabbitadmin"
@@ -145,10 +145,10 @@ rabbitmq:
 
 # Helm test smoke checks. Run with: helm test home-anthill -n default
 smokeTests:
-  curlImage: "curlimages/curl:8.11.1"
+  curlImage: "curlimages/curl:8.20.0"
   redisImage: "redis:8-alpine"
-  mosquittoImage: "eclipse-mosquitto:2.0"
-  image: "alpine:3.20"
+  mosquittoImage: "eclipse-mosquitto:2"
+  image: "alpine:3.23"
   resources:
     requests:
       cpu: "5m"
@@ -168,7 +168,7 @@ androidAppLinks:
 
 # web app
 gui:
-  image: "ks89/gui:develop"
+  image: "ks89/gui:v4.0.0"
   serviceName: "gui-svc"
   resources:
     requests:
@@ -179,7 +179,7 @@ gui:
       memory: "64Mi"
 
 admission:
-  image: "ks89/admission:develop"
+  image: "ks89/admission:v4.0.0"
   serviceName: admission-svc
   nginxServiceName: admission-nginx-svc
   grpc: 
@@ -201,7 +201,7 @@ admission:
       memory: "64Mi"
 
 apiDevices:
-  image: "ks89/api-devices:develop"
+  image: "ks89/api-devices:v4.0.0"
   serviceName: api-devices-svc
   grpc: 
     libraryLogEnable: false
@@ -214,7 +214,7 @@ apiDevices:
       memory: "128Mi"
 
 apiServer:
-  image: "ks89/api-server:develop"
+  image: "ks89/api-server:v5.0.0"
   serviceName: api-server-svc
   # default values, please replace all those values with your custom values file
   limitToUserEmails: "your.email@emailexample.com,other.email@emailexample.com"
@@ -239,7 +239,7 @@ apiServer:
       memory: "256Mi"
 
 register:
-  image: "ks89/register:develop"
+  image: "ks89/register:v3.0.0"
   serviceName: "register-svc"
   # secret key used by the Rocket Framework
   rocketSecretKey:
@@ -255,7 +255,7 @@ register:
       memory: "64Mi"
 
 producer:
-  image: "ks89/producer:develop"
+  image: "ks89/producer:v4.0.0"
   resources:
     requests:
       cpu: "5m"
@@ -265,7 +265,7 @@ producer:
       memory: "64Mi"
 
 consumer:
-  image: "ks89/consumer:develop"
+  image: "ks89/consumer:v4.0.0"
   resources:
     requests:
       cpu: "5m"
@@ -275,7 +275,7 @@ consumer:
       memory: "64Mi"
 
 online:
-  image: "ks89/online:develop"
+  image: "ks89/online:v3.0.0"
   serviceName: online-svc
   # secret key used by the Rocket Framework
   rocketSecretKey:
@@ -291,7 +291,7 @@ online:
       memory: "64Mi"
 
 onlineReceiver:
-  image: "ks89/online-receiver:develop"
+  image: "ks89/online-receiver:v3.0.0"
   serviceName: "online-receiver-svc"
   # secret key used by the Rocket Framework
   rocketSecretKey:
@@ -307,7 +307,7 @@ onlineReceiver:
       memory: "64Mi"
 
 onlineAlarm:
-  image: "ks89/online-alarm:develop"
+  image: "ks89/online-alarm:v3.0.0"
   # secret key used by the Rocket Framework
   rocketSecretKey:
     # don't use these in production, please generate your secrets with
