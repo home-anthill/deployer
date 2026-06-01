@@ -27,6 +27,7 @@ stringData:
     HTTP_ONLINE_SERVER=http://{{ .Values.online.serviceName }}.{{ .Values.namespace }}.svc.cluster.local
     HTTP_ONLINE_PORT=80
     HTTP_ONLINE_API=/online/
+    HTTP_ONLINE_NOTIFICATIONS_API=/notifications/
     HTTP_ONLINE_FCMTOKEN_API=/fcmtoken/
     HTTP_ONLINE_ROTATE_APITOKEN_API=/api-token/rotate
     HTTP_ONLINE_KEEPALIVE_API=/keepalive/

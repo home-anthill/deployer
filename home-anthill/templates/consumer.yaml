@@ -10,7 +10,7 @@ stringData:
     LOG_LEVEL=info
     MONGO_URI={{ .Values.mongodbUrl }}
     MONGO_DB_NAME=sensors
-    REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379
+    REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379/0
     REDIS_USERNAME={{ .Values.redis.username }}
     REDIS_PASSWORD={{ .Values.redis.password }}
     AMQP_URI=amqp://{{ .Values.rabbitmq.consumer.user }}:{{ .Values.rabbitmq.consumer.password }}@rabbitmq.{{ .Values.namespace }}.svc.cluster.local:5672
