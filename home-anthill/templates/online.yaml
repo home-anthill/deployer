@@ -9,6 +9,7 @@ stringData:
   .env: |-
     LOG_LEVEL=info
     REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379/0
+    NOTIFICATIONS_REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379/1
     REDIS_USERNAME={{ .Values.redis.username }}
     REDIS_PASSWORD={{ .Values.redis.password }}
   Rocket.toml: |-

@@ -1,5 +1,11 @@
 # Changelog
 
+## 6.1.0
+
+### Security
+
+- Rendered consumer and online-receiver signed replay-cache Redis settings as `REDIS_REPLAY_URI` against Redis database `/2`.
+
 ## 6.0.1
 
 ### Security

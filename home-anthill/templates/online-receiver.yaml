@@ -10,6 +10,7 @@ stringData:
     LOG_LEVEL=info
     MONGODB_URL={{ .Values.mongodbUrl }}
     REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379/0
+    REDIS_REPLAY_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379/2
     REDIS_USERNAME={{ .Values.redis.username }}
     REDIS_PASSWORD={{ .Values.redis.password }}
     API_TOKEN_HASH_SECRET={{ .Values.apiToken.hashSecret }}

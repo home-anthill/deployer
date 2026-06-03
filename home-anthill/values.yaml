@@ -167,7 +167,7 @@ androidAppLinks:
 
 # web app
 gui:
-  image: "ks89/gui:v4.0.0"
+  image: "ks89/gui:develop"
   serviceName: "gui-svc"
   resources:
     requests:
@@ -178,7 +178,7 @@ gui:
       memory: "64Mi"
 
 admission:
-  image: "ks89/admission:v4.0.0"
+  image: "ks89/admission:develop"
   serviceName: admission-svc
   nginxServiceName: admission-nginx-svc
   grpc: 
@@ -200,7 +200,7 @@ admission:
       memory: "64Mi"
 
 apiDevices:
-  image: "ks89/api-devices:v4.0.0"
+  image: "ks89/api-devices:develop"
   serviceName: api-devices-svc
   grpc: 
     libraryLogEnable: false
@@ -213,7 +213,7 @@ apiDevices:
       memory: "128Mi"
 
 apiServer:
-  image: "ks89/api-server:v5.0.0"
+  image: "ks89/api-server:develop"
   serviceName: api-server-svc
   # default values, please replace all those values with your custom values file
   limitToUserEmails: "your.email@emailexample.com,other.email@emailexample.com"
@@ -238,7 +238,7 @@ apiServer:
       memory: "256Mi"
 
 register:
-  image: "ks89/register:v3.0.0"
+  image: "ks89/register:develop"
   serviceName: "register-svc"
   # secret key used by the Rocket Framework
   rocketSecretKey:
@@ -254,7 +254,7 @@ register:
       memory: "64Mi"
 
 producer:
-  image: "ks89/producer:v4.0.0"
+  image: "ks89/producer:develop"
   resources:
     requests:
       cpu: "5m"
@@ -264,7 +264,7 @@ producer:
       memory: "64Mi"
 
 consumer:
-  image: "ks89/consumer:v4.0.0"
+  image: "ks89/consumer:develop"
   resources:
     requests:
       cpu: "5m"
@@ -274,7 +274,7 @@ consumer:
       memory: "64Mi"
 
 online:
-  image: "ks89/online:v3.0.0"
+  image: "ks89/online:develop"
   serviceName: online-svc
   # secret key used by the Rocket Framework
   rocketSecretKey:
@@ -290,7 +290,7 @@ online:
       memory: "64Mi"
 
 onlineReceiver:
-  image: "ks89/online-receiver:v3.0.0"
+  image: "ks89/online-receiver:develop"
   serviceName: "online-receiver-svc"
   # secret key used by the Rocket Framework
   rocketSecretKey:
@@ -306,7 +306,7 @@ onlineReceiver:
       memory: "64Mi"
 
 onlineAlarm:
-  image: "ks89/online-alarm:v3.0.0"
+  image: "ks89/online-alarm:develop"
   # secret key used by the Rocket Framework
   rocketSecretKey:
     # don't use these in production, please generate your secrets with
