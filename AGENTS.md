@@ -137,7 +137,7 @@ All service images are pulled from Docker Hub (`ks89/<service>:<tag>`).
 
 **Signed nonce replay cache** — `consumer` and `online-receiver` use Redis keys shaped as `signed-replay:v1:{device_uuid}:{feature_uuid}:{nonce}` with `SET NX EX` after signed MQTT HMAC verification. NetworkPolicy must allow `consumer` egress to Redis and Redis ingress from `consumer`, in addition to the existing online services.
 
-**API token rotation path** — `api-server.yaml` renders `HTTP_ONLINE_ROTATE_APITOKEN_API=/api-token/rotate`. When `api-server` regenerates a profile token, it calls `online` with the profile's device/feature UUIDs so Redis online-state `apiToken` fields and the `fcm_by_api_token` lookup move to the regenerated token even if Redis contains a stale older token.
+**API token update path** — `api-server.yaml` renders `HTTP_ONLINE_APITOKEN_API=/api-token/`. When `api-server` regenerates a profile token, it calls `online` with the profile's device/feature UUIDs so Redis online-state `apiToken` fields and the `fcm_by_api_token` lookup move to the regenerated token even if Redis contains a stale older token.
 
 **Security headers split by layer** — `gateway-webapp.yaml` sets Gateway-level browser hardening headers; `gui.yaml` and `admission.yaml` set `Referrer-Policy` and `Content-Security-Policy` in their NGINX ConfigMaps. CSP is kept at NGINX because the Gateway response-header filter is too coarse for this use case.
 

@@ -65,7 +65,7 @@ nginx:
 
 # k8s-config-reloader
 k8sConfigReloader:
-  image: "ks89/k8s-config-reloader:v1.1.1"
+  image: "ks89/k8s-config-reloader:develop"
   resources:
     requests:
       cpu: "5m"
@@ -76,7 +76,7 @@ k8sConfigReloader:
 
 # public MQTT server
 mosquitto:
-  image: "ks89/mosquitto:v4.0.0"
+  image: "ks89/mosquitto:develop"
   serviceName: "mosquitto-svc"
   dataFolder: "/root/mosquitto-persistence-data"
   auth:
