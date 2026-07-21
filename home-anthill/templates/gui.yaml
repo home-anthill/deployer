@@ -8,12 +8,14 @@ data:
   # nginx.conf used by the static web app
   # with proxy_pass to api server
   nginx.conf: |-
+    error_log /dev/stderr;
     worker_processes auto;
     events {
         worker_connections 1024;
     }
 
     http {
+      access_log /dev/stdout;
       server_tokens off;
       # IMPORTANT: mime.types are required, otherwise react app
       # won't load SVGs and CSS files in the right way
@@ -95,8 +97,10 @@ spec:
       {{- end }}
       securityContext:
         runAsNonRoot: true
-        runAsUser: 101
-        runAsGroup: 101
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -138,13 +142,13 @@ spec:
             readOnly: true
           {{- end }}
           - name: nginx-cache
-            mountPath: /var/cache/nginx
+            mountPath: /var/lib/nginx/tmp
           - name: nginx-run
-            mountPath: /run
+            mountPath: /run/nginx
           - name: nginx-tmp
             mountPath: /tmp
           - name: nginx-log
-            mountPath: /var/log/nginx
+            mountPath: /var/lib/nginx/logs
       volumes:
         - name: gui-config
           configMap:

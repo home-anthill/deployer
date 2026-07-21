@@ -61,7 +61,7 @@ alpine:
 nginx:
   image: "1-alpine"
   # hardened base images from dhi.io (used only if dhi.enabled is true)
-  hardenedImage: "dhi.io/nginx:1-alpine3.23-dev"
+  hardenedImage: "dhi.io/nginx:1-alpine3.24-dev"
 
 # k8s-config-reloader
 k8sConfigReloader:
