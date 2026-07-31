@@ -44,13 +44,15 @@ data:
     user {{ .Values.mosquitto.auth.users.device.username }}
     topic write sensors/+/+
     topic write online/+/features/+
+    topic write alarms/+/features/+/+
     topic read devices/+/values
 
     user {{ .Values.mosquitto.auth.users.producer.username }}
     topic read sensors/+/+
 
-    user {{ .Values.mosquitto.auth.users.onlineReceiver.username }}
+    user {{ .Values.mosquitto.auth.users.alarmReceiver.username }}
     topic read online/+/features/+
+    topic read alarms/+/features/+/+
 
     user {{ .Values.mosquitto.auth.users.apiDevices.username }}
     topic write devices/+/values
@@ -64,7 +66,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 type: Opaque
 stringData:
-  MOSQUITTO_USERS: {{ printf "%s:%s,%s:%s,%s:%s,%s:%s" .Values.mosquitto.auth.users.device.username .Values.mosquitto.auth.users.device.password .Values.mosquitto.auth.users.producer.username .Values.mosquitto.auth.users.producer.password .Values.mosquitto.auth.users.onlineReceiver.username .Values.mosquitto.auth.users.onlineReceiver.password .Values.mosquitto.auth.users.apiDevices.username .Values.mosquitto.auth.users.apiDevices.password | quote }}
+  MOSQUITTO_USERS: {{ printf "%s:%s,%s:%s,%s:%s,%s:%s" .Values.mosquitto.auth.users.device.username .Values.mosquitto.auth.users.device.password .Values.mosquitto.auth.users.producer.username .Values.mosquitto.auth.users.producer.password .Values.mosquitto.auth.users.alarmReceiver.username .Values.mosquitto.auth.users.alarmReceiver.password .Values.mosquitto.auth.users.apiDevices.username .Values.mosquitto.auth.users.apiDevices.password | quote }}
 ---
 {{- end }}
 apiVersion: apps/v1

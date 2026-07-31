@@ -34,18 +34,18 @@ The chart deploys 17 policies with SSL disabled, or 18 when SSL is enabled.
 | 2 | `allow-dns-egress` | all pods | — | any:53 UDP/TCP |
 | 3 | `allow-ngf-dataplane` | `app.kubernetes.io/managed-by: ngf-nginx` | 0.0.0.0/0 on 80,443,1883,8883; (SSL) cert-manager ns on 80 | NGF controller:8443, gui:80, admission-nginx:80, mosquitto:1883/8883, (SSL: solver:8089) |
 | 4 | `allow-gui` | `app: gui` | NGF + kubelet on 80 | api-server:80 |
-| 5 | `allow-api-server` | `app: api-server` | gui + kubelet on 80 | api-devices:50051, register:80, online:80, ext:27017, ext:443 |
+| 5 | `allow-api-server` | `app: api-server` | gui + kubelet on 80 | api-devices:50051, register:80, alarm-api:80, ext:27017, ext:443 |
 | 6 | `allow-admission-nginx` | `app: admission-nginx` | NGF + kubelet on 80 | admission:80 |
 | 7 | `allow-admission` | `app: admission` | admission-nginx + kubelet on 80 | api-devices:50051, register:80, ext:27017 |
 | 8 | `allow-api-devices` | `app: api-devices` | api-server + admission + kubelet on 50051 | mosquitto:1883, ext:27017 |
 | 9 | `allow-register` | `app: register` | admission + api-server + kubelet on 80 | ext:27017 |
-| 10 | `allow-online` | `app: online` | api-server + kubelet on 80 | redis:6379 |
-| 11 | `allow-online-receiver` | `app: online-receiver` | kubelet on 80 | mosquitto:1883, redis:6379 |
-| 12 | `allow-online-alarm` | `app: online-alarm` | kubelet on 80 | redis:6379, ext:443 |
+| 10 | `allow-alarm-api` | `app: alarm-api` | api-server + kubelet on 80 | redis:6379 |
+| 11 | `allow-alarm-receiver` | `app: alarm-receiver` | kubelet on 80 | mosquitto:1883, redis:6379 |
+| 12 | `allow-alarm-notifier` | `app: alarm-notifier` | kubelet on 80 | redis:6379, ext:443 |
 | 13 | `allow-producer` | `app: producer` | none | mosquitto:1883, rabbitmq:5672 |
 | 14 | `allow-consumer` | `app: consumer` | none | rabbitmq:5672, redis:6379, ext:27017 |
-| 15 | `allow-mosquitto` | `app: mosquitto` | NGF + api-devices + producer + online-receiver on 1883/8883; kubelet on 1883 | none |
-| 16 | `allow-redis` | `app: redis` | online + online-receiver + online-alarm + consumer + kubelet on 6379 | none |
+| 15 | `allow-mosquitto` | `app: mosquitto` | NGF + api-devices + producer + alarm-receiver on 1883/8883; kubelet on 1883 | none |
+| 16 | `allow-redis` | `app: redis` | alarm-api + alarm-receiver + alarm-notifier + consumer + kubelet on 6379 | none |
 | 17 | `allow-rabbitmq` | `app.kubernetes.io/name: rabbitmq` | producer + consumer on 5672, operator on 5672/15672 | none |
 | 18 | `allow-cert-manager-solver` (SSL only) | `acme.cert-manager.io/http01-solver: "true"` | NGF on 8089 | none |
 
@@ -92,17 +92,17 @@ The chart deploys 17 policies with SSL disabled, or 18 when SSL is enabled.
                         │  │                 │   └─────────────────┘     │             │
                         │  │                 │                           │             │
                         │  │  ┌──────────────┴──┐                       │             │
-                        │  │  │ online-receiver │                       │             │
+                        │  │  │ alarm-receiver │                       │             │
                         │  │  └────────┬────────┘                       │             │
                         │  │       :6379│                                │             │
                         │  │           ▼                                │             │
                         │  │     ┌──────────┐    ┌──────────┐           │             │
-                        │  │     │  redis   │◀───│  online  │           │             │
+                        │  │     │  redis   │◀───│alarm-api │           │             │
                         │  │     └────┬─────┘    └──────────┘           │             │
                         │  │      :6379│               ▲                │             │
                         │  │          ▼                │:80             │             │
                         │  │   ┌──────────────┐        │                │             │
-                        │  │   │ online-alarm │   api-server            │             │
+                        │  │   │ alarm-notifier │   api-server            │             │
                         │  │   └──────────────┘                         │             │
                         │  │          │                                  │             │
                         │  │          │:443                              │:27017       │
@@ -155,7 +155,7 @@ The React frontend served by nginx.
 Central REST API handling OAuth2, homes, rooms, devices, and profiles.
 
 - **Ingress**: From `gui` (nginx proxy) and kubelet on port 80.
-- **Egress**: To `api-devices:50051` (gRPC), `register:80` (HTTP), `online:80` (HTTP), MongoDB Atlas (port 27017), and GitHub OAuth2 (port 443).
+- **Egress**: To `api-devices:50051` (gRPC), `register:80` (HTTP), `alarm-api:80` (HTTP), MongoDB Atlas (port 27017), and GitHub OAuth2 (port 443).
 - **External egress**: Uses a bare `ports` rule (no `to` selector) for MongoDB and GitHub, allowing any destination on those ports. This is necessary because MongoDB Atlas and GitHub IP ranges change over time.
 
 #### 6. `allow-admission-nginx`
@@ -188,21 +188,21 @@ Rust/Rocket service for sensor registration and data retrieval.
 - **Ingress**: From `admission`, `api-server`, and kubelet on port 80.
 - **Egress**: To MongoDB Atlas (port 27017).
 
-#### 10. `allow-online`
+#### 10. `allow-alarm-api`
 
 Rust/Rocket service tracking device online status and managing FCM tokens.
 
 - **Ingress**: From `api-server` and kubelet on port 80.
 - **Egress**: Only to `redis:6379`.
 
-#### 11. `allow-online-receiver`
+#### 11. `allow-alarm-receiver`
 
 MQTT subscriber that bridges device presence messages into Redis.
 
 - **Ingress**: Kubelet only on port 80 (no service callers — inbound data comes via MQTT).
 - **Egress**: To `mosquitto:1883` (MQTT subscribe, always via internal service) and `redis:6379`.
 
-#### 12. `allow-online-alarm`
+#### 12. `allow-alarm-notifier`
 
 Polls Redis for offline devices and sends FCM push notifications.
 
@@ -231,7 +231,7 @@ Rust service consuming from RabbitMQ and persisting sensor data to MongoDB.
 
 Eclipse Mosquitto MQTT broker.
 
-- **Ingress**: From NGF (external ESP32 device traffic via TCPRoute) and from internal MQTT clients (`api-devices`, `producer`, `online-receiver`) on ports 1883/8883.
+- **Ingress**: From NGF (external ESP32 device traffic via TCPRoute) and from internal MQTT clients (`api-devices`, `producer`, `alarm-receiver`) on ports 1883/8883.
 - **Egress**: None — Mosquitto is a pure broker that only responds to incoming connections.
 
 When SSL is enabled, a `k8s-config-reloader` sidecar runs alongside Mosquitto. It monitors the TLS cert files via filesystem inotify (no network access required) and sends SIGHUP to Mosquitto for cert reload. The pod sets `shareProcessNamespace: true` and the sidecar has `capabilities: add: ["KILL"]` to enable cross-container signaling.
@@ -240,7 +240,7 @@ When SSL is enabled, a `k8s-config-reloader` sidecar runs alongside Mosquitto. I
 
 In-cluster Redis cache for device online status and signed nonce replay protection.
 
-- **Ingress**: From `online`, `online-receiver`, `online-alarm`, and `consumer` on port 6379.
+- **Ingress**: From `alarm-api`, `alarm-receiver`, `alarm-notifier`, and `consumer` on port 6379.
 - **Egress**: None — Redis is a pure cache that only responds to incoming connections.
 
 #### 17. `allow-rabbitmq`
@@ -366,9 +366,9 @@ Most services expose HTTP health endpoints that kubelet checks for readiness and
 | admission | 80 | `/admission/keepalive` | HTTP |
 | api-devices | 50051 | — | gRPC |
 | register | 80 | `/keepalive` | HTTP |
-| online | 80 | `/keepalive` | HTTP |
-| online-receiver | 80 | `/keepalive` | HTTP |
-| online-alarm | 80 | `/keepalive` | HTTP |
+| alarm-api | 80 | `/keepalive` | HTTP |
+| alarm-receiver | 80 | `/keepalive` | HTTP |
+| alarm-notifier | 80 | `/keepalive` | HTTP |
 | mosquitto | 1883 | — | TCP socket |
 | redis | 6379 | — | TCP socket |
 | producer | — | — | none |
@@ -410,6 +410,6 @@ Several policies allow egress to external services using bare `ports` rules (no 
 | register | 27017 | MongoDB Atlas |
 | consumer | 27017 | MongoDB Atlas |
 | consumer | 6379 | Redis |
-| online-alarm | 443 | Google FCM |
+| alarm-notifier | 443 | Google FCM |
 
 These rules are intentionally broad because the IP ranges for cloud services (MongoDB Atlas, GitHub, Google) are dynamic and change over time. Pinning them to specific CIDRs would require ongoing maintenance and risk breaking connectivity.

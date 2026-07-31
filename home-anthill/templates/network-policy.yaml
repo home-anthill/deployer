@@ -13,7 +13,7 @@
 #   admission        → MongoDB Atlas         (external :27017)
 #   api-server       → api-devices  :50051  (gRPC device commands)
 #   api-server       → register     :80     (HTTP sensor data)
-#   api-server       → online       :80     (HTTP online status / FCM token)
+#   api-server       → alarm-api    :80     (HTTP online status / FCM token)
 #   api-server       → MongoDB Atlas         (external :27017)
 #   api-server       → GitHub OAuth2         (external :443)
 #   api-devices      → mosquitto    :1883      (MQTT publish to devices, internal service)
@@ -23,11 +23,11 @@
 #   consumer         → rabbitmq     :5672   (AMQP consume)
 #   consumer         → redis        :6379   (signed nonce replay cache)
 #   consumer         → MongoDB Atlas          (external :27017)
-#   online-receiver  → mosquitto    :1883      (MQTT subscribe online topics, internal service)
-#   online-receiver  → redis        :6379
-#   online           → redis        :6379
-#   online-alarm     → redis        :6379
-#   online-alarm     → FCM / Google  (external :443)
+#   alarm-receiver   → mosquitto    :1883      (MQTT subscribe online topics, internal service)
+#   alarm-receiver   → redis        :6379
+#   alarm-api        → redis        :6379
+#   alarm-notifier   → redis        :6379
+#   alarm-notifier   → FCM / Google  (external :443)
 #   RabbitMQ Operator → rabbitmq    :5672/:15672 (management)
 #
 #   Kubelet → pods with HTTP health probes :80 (nodesCIDR)
@@ -194,7 +194,7 @@ spec:
 
 ---
 # 5. api-server: receives traffic from gui nginx proxy on :80 and kubelet probe.
-#    Egress: api-devices (gRPC), register (HTTP), online (HTTP),
+#    Egress: api-devices (gRPC), register (HTTP), alarm-api (HTTP),
 #            MongoDB Atlas (:27017), GitHub OAuth2 (:443).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -236,7 +236,7 @@ spec:
   - to:
     - podSelector:
         matchLabels:
-          app: online
+          app: alarm-api
     ports:
     - port: 80
       protocol: TCP
@@ -392,17 +392,17 @@ spec:
   egress: []
 
 ---
-# 10. online: receives HTTP from api-server on :80 and kubelet probe on :80.
+# 10. alarm-api: receives HTTP from api-server on :80 and kubelet probe on :80.
 #     Egress: redis (:6379).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-online
+  name: allow-alarm-api
   namespace: {{ .Values.namespace }}
 spec:
   podSelector:
     matchLabels:
-      app: online
+      app: alarm-api
   policyTypes:
   - Ingress
   - Egress
@@ -426,18 +426,18 @@ spec:
       protocol: TCP
 
 ---
-# 11. online-receiver: no service callers; kubelet health probe on :80.
+# 11. alarm-receiver: no service callers; kubelet health probe on :80.
 #     Egress: mosquitto (MQTT subscribe :1883, internal service), redis (:6379),
 #             MongoDB Atlas (:27017) for signed MQTT payload verification.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-online-receiver
+  name: allow-alarm-receiver
   namespace: {{ .Values.namespace }}
 spec:
   podSelector:
     matchLabels:
-      app: online-receiver
+      app: alarm-receiver
   policyTypes:
   - Ingress
   - Egress
@@ -468,17 +468,17 @@ spec:
   # External egress is restricted by Cilium FQDN policy.
 
 ---
-# 12. online-alarm: no service callers; kubelet health probe on :80.
+# 12. alarm-notifier: no service callers; kubelet health probe on :80.
 #     Egress: redis (:6379), FCM/Google (:443).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-online-alarm
+  name: allow-alarm-notifier
   namespace: {{ .Values.namespace }}
 spec:
   podSelector:
     matchLabels:
-      app: online-alarm
+      app: alarm-notifier
   policyTypes:
   - Ingress
   - Egress
@@ -564,7 +564,7 @@ spec:
 
 ---
 # 15. mosquitto: receives MQTT from NGF (ESP32 devices via TCPRoute) and from
-#     internal subscribers (api-devices, producer, online-receiver). Kubelet
+#     internal subscribers (api-devices, producer, alarm-receiver). Kubelet
 #     TCP socket health probes use nodesCIDR.
 #     No egress needed — it is a pure broker.
 apiVersion: networking.k8s.io/v1
@@ -599,7 +599,7 @@ spec:
           app: producer
     - podSelector:
         matchLabels:
-          app: online-receiver
+          app: alarm-receiver
     ports:
     - port: 1883
       protocol: TCP
@@ -614,7 +614,7 @@ spec:
       protocol: TCP
 
 ---
-# 16. redis: receives connections from online, online-receiver, online-alarm, consumer.
+# 16. redis: receives connections from alarm-api, alarm-receiver, alarm-notifier, consumer.
 #     Kubelet TCP socket health probes use nodesCIDR.
 #     No egress needed — it is a pure cache.
 apiVersion: networking.k8s.io/v1
@@ -632,13 +632,13 @@ spec:
   - from:
     - podSelector:
         matchLabels:
-          app: online
+          app: alarm-api
     - podSelector:
         matchLabels:
-          app: online-receiver
+          app: alarm-receiver
     - podSelector:
         matchLabels:
-          app: online-alarm
+          app: alarm-notifier
     - podSelector:
         matchLabels:
           app: consumer

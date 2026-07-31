@@ -89,9 +89,9 @@ mosquitto:
       producer:
         username: "producer_sub"
         password: "ProducerPassword1!" # default value, please replace this with your custom values file
-      onlineReceiver:
-        username: "online_receiver_sub"
-        password: "OnlineReceiverPassword1!" # default value, please replace this with your custom values file
+      alarmReceiver:
+        username: "alarm_receiver_sub"
+        password: "AlarmReceiverPassword1!" # default value, please replace this with your custom values file
       apiDevices:
         username: "api_devices_pub"
         password: "ApiDevicesPassword1!" # default value, please replace this with your custom values file
@@ -273,9 +273,9 @@ consumer:
       cpu: "200m"
       memory: "64Mi"
 
-online:
-  image: "ks89/online:develop"
-  serviceName: online-svc
+alarmApi:
+  image: "ks89/alarm-api:develop"
+  serviceName: alarm-api-svc
   # secret key used by the Rocket Framework
   rocketSecretKey:
     # don't use these in production, please generate your secrets with
@@ -289,9 +289,9 @@ online:
       cpu: "200m"
       memory: "64Mi"
 
-onlineReceiver:
-  image: "ks89/online-receiver:develop"
-  serviceName: "online-receiver-svc"
+alarmReceiver:
+  image: "ks89/alarm-receiver:develop"
+  serviceName: "alarm-receiver-svc"
   # secret key used by the Rocket Framework
   rocketSecretKey:
     # don't use these in production, please generate your secrets with
@@ -305,8 +305,8 @@ onlineReceiver:
       cpu: "200m"
       memory: "64Mi"
 
-onlineAlarm:
-  image: "ks89/online-alarm:develop"
+alarmNotifier:
+  image: "ks89/alarm-notifier:develop"
   # secret key used by the Rocket Framework
   rocketSecretKey:
     # don't use these in production, please generate your secrets with

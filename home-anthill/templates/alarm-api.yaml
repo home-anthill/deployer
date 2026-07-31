@@ -2,14 +2,15 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: online-secret
+  name: alarm-api-secret
   namespace: {{ .Values.namespace }}
 type: Opaque
 stringData:
   .env: |-
     LOG_LEVEL=info
-    REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379/0
+    ONLINE_REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379/0
     NOTIFICATIONS_REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379/1
+    ALARMS_REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379/3
     REDIS_USERNAME={{ .Values.redis.username }}
     REDIS_PASSWORD={{ .Values.redis.password }}
   Rocket.toml: |-
@@ -18,14 +19,14 @@ stringData:
     [release]
     address = "0.0.0.0"
     port = 80
-    secret_key="{{ .Values.online.rocketSecretKey.release }}"
+    secret_key="{{ .Values.alarmApi.rocketSecretKey.release }}"
     limits = { json = "8 KiB" }
     cli_colors = false
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: online
+  name: alarm-api
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
@@ -33,14 +34,14 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: online
+      app: alarm-api
   template:
     metadata:
       labels:
-        app: online
+        app: alarm-api
     spec:
       {{- if .Values.serviceAccounts.enabled }}
-      serviceAccountName: online
+      serviceAccountName: alarm-api
       automountServiceAccountToken: false
       {{- end }}
       securityContext:
@@ -50,14 +51,14 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-      - name: online
-        image: {{ .Values.online.image }}
+      - name: alarm-api
+        image: {{ .Values.alarmApi.image }}
         {{- if .Values.debug.pods.alwaysPullContainers }}
         imagePullPolicy: Always
         {{- end }}
         {{- if .Values.debug.pods.sleepInfinity }}
         command: ["/bin/sh"]
-        args: ["-c", "chmod +x /app/online; /app/online; sleep Infinity;"]
+        args: ["-c", "chmod +x /app/alarm-api; /app/alarm-api; sleep Infinity;"]
         {{- end }}
         securityContext:
           allowPrivilegeEscalation: false
@@ -66,7 +67,7 @@ spec:
             drop: ["ALL"]
             add: ["NET_BIND_SERVICE"]
         resources:
-          {{- toYaml .Values.online.resources | nindent 10 }}
+          {{- toYaml .Values.alarmApi.resources | nindent 10 }}
         readinessProbe:
           httpGet:
             path: /keepalive
@@ -83,11 +84,11 @@ spec:
           containerPort: 80
           protocol: TCP
         volumeMounts:
-        - name: online-secret
+        - name: alarm-api-secret
           mountPath: /app/.env
           subPath: .env
           readOnly: true
-        - name: online-secret
+        - name: alarm-api-secret
           mountPath: /app/Rocket.toml
           subPath: Rocket.toml
           readOnly: true
@@ -96,9 +97,9 @@ spec:
         - name: logs
           mountPath: /app/logs
       volumes:
-      - name: online-secret
+      - name: alarm-api-secret
         secret:
-          secretName: online-secret
+          secretName: alarm-api-secret
       - name: tmp
         emptyDir: {}
       - name: logs
@@ -107,11 +108,11 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: {{ .Values.online.serviceName }}
+  name: {{ .Values.alarmApi.serviceName }}
   namespace: {{ .Values.namespace }}
 spec:
   selector:
-    app: online
+    app: alarm-api
   ports:
     - name: http
       protocol: TCP

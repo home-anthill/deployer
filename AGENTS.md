@@ -57,9 +57,9 @@ The chart deploys dozens of resources to a Kubernetes cluster, organized into th
 **Internal cluster API tier**
 - `api-devices` - gRPC service for IoT device management and MQTT command publishing
 - `register` - Rust/Rocket service for sensor registration (MongoDB)
-- `online` - Rust/Rocket service tracking device online status (Redis); exposes FCM token management
-- `online-receiver` - MQTT -> Redis bridge; no Service resource (inbound data comes from MQTT; HTTP port is for probes). It also uses Redis as a signed MQTT nonce replay cache.
-- `online-alarm` - polls Redis for offline devices, sends FCM push notifications
+- `alarm-api` - Rust/Rocket service tracking device online status (Redis); exposes FCM token management
+- `alarm-receiver` - MQTT -> Redis bridge; no Service resource (inbound data comes from MQTT; HTTP port is for probes). It also uses Redis as a signed MQTT nonce replay cache.
+- `alarm-notifier` - polls Redis for offline devices, sends FCM push notifications
 
 **Messaging tier**
 - `rabbitmq` - AMQP broker managed by RabbitMQ Operator (`RabbitmqCluster` CRD); 3 users: `admin` (full access), `producer` (scoped to `ks89` / `amq.default` publishing and `ks89` queue access), `consumer` (no writes, scoped to `^ks89$` configure/read)
@@ -106,9 +106,9 @@ The chart deploys dozens of resources to a Kubernetes cluster, organized into th
 | `mongodbUrl` | External MongoDB Atlas connection string |
 | `storageClassName` | Storage class used by Redis and Mosquitto PVCs (`local-path` by default in this repo) |
 | `apiToken` | Shared `hashSecret` and `encryptionKey` rendered into token-aware services as `API_TOKEN_HASH_SECRET` and `API_TOKEN_ENCRYPTION_KEY` |
-| `gui` / `apiServer` / `apiDevices` / `admission` / `register` / `producer` / `consumer` / `online` / `onlineReceiver` / `onlineAlarm` | Per-service image tag, service name where applicable, and service-specific secrets |
-| `apiServer` | Also: `limitToUserEmails`, JWT/cookie secrets, `refreshTokenHashSecret`, OAuth2 client IDs for web + Android app, online token-rotation endpoint path, `sensors.enable` |
-| `onlineAlarm` | Also: `firebaseServiceAccount` (full Firebase service account JSON, rendered into a Secret) |
+| `gui` / `apiServer` / `apiDevices` / `admission` / `register` / `producer` / `consumer` / `alarmApi` / `alarmReceiver` / `alarmNotifier` | Per-service image tag, service name where applicable, and service-specific secrets |
+| `apiServer` | Also: `limitToUserEmails`, JWT/cookie secrets, `refreshTokenHashSecret`, OAuth2 client IDs for web + Android app, alarm token-rotation endpoint path, `sensors.enable` |
+| `alarmNotifier` | Also: `firebaseServiceAccount` (full Firebase service account JSON, rendered into a Secret) |
 | `serviceAccounts.enabled` | Creates `ServiceAccount` resources and binds them to pods when `true` (default: `true`) |
 | `network.enabled` | Deploys all `NetworkPolicy` resources (default: `true`; set `false` for dev/test clusters) |
 | `network.nodesCIDR` | CIDR for kubelet health-probe traffic (default: `10.0.0.0/24`; set to the target cluster's actual node subnet) |
@@ -117,27 +117,27 @@ The chart deploys dozens of resources to a Kubernetes cluster, organized into th
 | `alpine` / `nginx` / `k8sConfigReloader` | Shared utility images with resource limits |
 | `smokeTests` | Helm test image and resources for deployment smoke checks |
 | `debug.pods.alwaysPullContainers` | Forces `imagePullPolicy: Always` on every pod |
-| `debug.pods.sleepInfinity` | Overrides container command with `sleep Infinity` for debugging (register, producer, consumer, online, online-receiver, online-alarm) |
+| `debug.pods.sleepInfinity` | Overrides container command with `sleep Infinity` for debugging (register, producer, consumer, alarm-api, alarm-receiver, alarm-notifier) |
 
 All service images are pulled from Docker Hub (`ks89/<service>:<tag>`).
 
 ## Notable Template Patterns
 
-**MQTT TLS init container** — `api-devices.yaml`, `producer.yaml`, `online-receiver.yaml`: when `domains.mqtt.ssl=true`, an init container (`alpine`) copies the cluster TLS cert into a shared `emptyDir` volume before the main container starts.
+**MQTT TLS init container** — `api-devices.yaml`, `producer.yaml`, `alarm-receiver.yaml`: when `domains.mqtt.ssl=true`, an init container (`alpine`) copies the cluster TLS cert into a shared `emptyDir` volume before the main container starts.
 
 **Internal plaintext is intentional** — Do not report internal service-to-service HTTP, gRPC, MQTT, AMQP, or Redis traffic as a security issue merely because it lacks TLS. This chart intentionally relies on namespace isolation, Kubernetes NetworkPolicy, service scoping, and broker/application credentials for in-cluster traffic. Only flag plaintext transport when it crosses the cluster boundary or when there is a concrete exposure beyond the trusted in-cluster network model.
 
 **Default values are placeholders** — Do not report sample credentials or secrets in `home-anthill/values.yaml` as a hardcoded-secret issue by themselves. Production deployments override these values through an external private values file passed to Helm. Only flag this area if a real secret is committed outside the placeholder defaults, a template prevents private overrides, or a rendered manifest exposes sensitive values through an inappropriate Kubernetes object.
 
-**Secret-backed app config** — `api-server.yaml`, `register.yaml`, `online.yaml`, `online-alarm.yaml`, `consumer.yaml`, `producer.yaml`, `api-devices.yaml`, `admission.yaml`, and `online-receiver.yaml` mount their runtime config from Secrets rather than ConfigMaps. Keep the on-disk file paths stable when updating these charts so the containers do not need image changes. `consumer.yaml` must render `REDIS_REPLAY_URI`, `REDIS_USERNAME`, and `REDIS_PASSWORD` because consumer uses Redis for signed nonce replay protection.
+**Secret-backed app config** — `api-server.yaml`, `register.yaml`, `alarm-api.yaml`, `alarm-notifier.yaml`, `consumer.yaml`, `producer.yaml`, `api-devices.yaml`, `admission.yaml`, and `alarm-receiver.yaml` mount their runtime config from Secrets rather than ConfigMaps. Keep the on-disk file paths stable when updating these charts so the containers do not need image changes. The alarm workloads use `ONLINE_REDIS_URI`; `alarm-receiver` uses `REPLAY_REDIS_URI`, while `consumer` keeps `REDIS_REPLAY_URI`. Both replay-cache clients also require `REDIS_USERNAME` and `REDIS_PASSWORD`.
 
-**API token secrets** — `apiToken.hashSecret` and `apiToken.encryptionKey` are rendered only into Kubernetes Secrets, inside the `.env` files for `api-server`, `admission`, `register`, `api-devices`, `consumer`, and `online-receiver`. Keep these values identical across those services; mismatches break token lookup, encrypted token reads, or signed-message verification.
+**API token secrets** — `apiToken.hashSecret` and `apiToken.encryptionKey` are rendered only into Kubernetes Secrets, inside the `.env` files for `api-server`, `admission`, `register`, `api-devices`, `consumer`, and `alarm-receiver`. Keep these values identical across those services; mismatches break token lookup, encrypted token reads, or signed-message verification.
 
 **Redis config secret** — `redis.yaml` mounts `redis.conf` from a Secret because the ACL line contains the Redis username and password. The file still lands at `/usr/local/etc/redis/redis.conf`; only the Kubernetes object type changed.
 
-**Signed nonce replay cache** — `consumer` and `online-receiver` use Redis keys shaped as `signed-replay:v1:{device_uuid}:{feature_uuid}:{nonce}` with `SET NX EX` after signed MQTT HMAC verification. NetworkPolicy must allow `consumer` egress to Redis and Redis ingress from `consumer`, in addition to the existing online services.
+**Signed nonce replay cache** — `consumer` and `alarm-receiver` use Redis keys shaped as `signed-replay:v1:{device_uuid}:{feature_uuid}:{nonce}` with `SET NX EX` after signed MQTT HMAC verification. NetworkPolicy must allow `consumer` egress to Redis and Redis ingress from `consumer`, in addition to the alarm services.
 
-**API token update path** — `api-server.yaml` renders `HTTP_ONLINE_APITOKEN_API=/api-token/`. When `api-server` regenerates a profile token, it calls `online` with the profile's device/feature UUIDs so Redis online-state `apiToken` fields and the `fcm_by_api_token` lookup move to the regenerated token even if Redis contains a stale older token.
+**API token update path** — `api-server.yaml` renders `HTTP_ALARM_APITOKEN_API=/api-token/`. When `api-server` regenerates a profile token, it calls `alarm-api` with the profile's device/feature UUIDs so Redis online-state `apiToken` fields and the `fcm_by_api_token` lookup move to the regenerated token even if Redis contains a stale older token.
 
 **Security headers split by layer** — `gateway-webapp.yaml` sets Gateway-level browser hardening headers; `gui.yaml` and `admission.yaml` set `Referrer-Policy` and `Content-Security-Policy` in their NGINX ConfigMaps. CSP is kept at NGINX because the Gateway response-header filter is too coarse for this use case.
 
@@ -149,13 +149,13 @@ All service images are pulled from Docker Hub (`ks89/<service>:<tag>`).
 
 **Admission NGINX proxy** — `admission.yaml` defines two Deployments: the admission service and an NGINX proxy deployment. The Gateway routes `/admission` to `admission-nginx-svc`, which forwards to `admission-svc` inside the namespace.
 
-**Deployment smoke tests** — `templates/tests/smoke-test.yaml` defines Helm test hooks. Run `helm test home-anthill -n default` after install/upgrade to validate GUI, API server, online service, Redis auth, Mosquitto auth, and RabbitMQ management auth. The test uses a temporary Secret with `secretKeyRef` env vars; credentials are not embedded in the Job command arguments. The hook also creates temporary NetworkPolicies for the smoke-test pod and removes them on success.
+**Deployment smoke tests** — `templates/tests/smoke-test.yaml` defines Helm test hooks. Run `helm test home-anthill -n default` after install/upgrade to validate GUI, API server, alarm-api service, Redis auth, Mosquitto auth, and RabbitMQ management auth. The test uses a temporary Secret with `secretKeyRef` env vars; credentials are not embedded in the Job command arguments. The hook also creates temporary NetworkPolicies for the smoke-test pod and removes them on success.
 
 **MongoDB FQDN egress** — `cilium-egress.yaml` allows external MongoDB Atlas access by FQDN, not by raw port-only egress. The policy includes DNS visibility for `kube-dns` and Atlas hostname patterns so SRV records and shard targets can resolve correctly.
 
 ## Deployment Env Audit
 
-The current Helm env maps match the service config structs and direct `os.Getenv` usage across `admission`, `api-devices`, `api-server`, `register`, `producer`, `consumer`, `online`, `online-receiver`, and `online-alarm`.
+The current Helm env maps match the service config structs and direct `os.Getenv` usage across `admission`, `api-devices`, `api-server`, `register`, `producer`, `consumer`, `alarm-api`, `alarm-receiver`, and `alarm-notifier`.
 
 Watch these deployment-sensitive details when updating services:
 
@@ -165,5 +165,5 @@ Watch these deployment-sensitive details when updating services:
 - `redis` now runs with `protected-mode yes` and uses a PVC backed by `storageClassName`; do not reintroduce `hostPath` PVs in this chart.
 - `redis-config` must stay Secret-backed because it contains the Redis ACL username/password line.
 - `consumer` requires Redis env vars and Redis network access for signed MQTT nonce replay protection; do not remove the `consumer -> redis:6379` egress or `redis <- consumer` ingress rules.
-- MQTT auth uses role-specific values under `mosquitto.auth.users`: `device`, `producer`, `onlineReceiver`, and `apiDevices`.
-- `register.mongo_max_retries`, `online.redis_username`, `online.redis_password`, and `onlineAlarm.fcm_service_account_key_path` have code defaults or chart-provided defaults; absence is intentional only where the service struct marks the field optional/defaulted.
+- MQTT auth uses role-specific values under `mosquitto.auth.users`: `device`, `producer`, `alarmReceiver`, and `apiDevices`.
+- `register.mongo_max_retries`, `alarmApi.redis_username`, `alarmApi.redis_password`, and `alarmNotifier.fcm_service_account_key_path` have code defaults or chart-provided defaults; absence is intentional only where the service struct marks the field optional/defaulted.

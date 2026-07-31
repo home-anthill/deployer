@@ -2,14 +2,15 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: online-alarm-secret
+  name: alarm-notifier-secret
   namespace: {{ .Values.namespace }}
 type: Opaque
 stringData:
   .env: |-
     LOG_LEVEL=debug
-    REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379/0
+    ONLINE_REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379/0
     NOTIFICATIONS_REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379/1
+    ALARMS_REDIS_URI=redis://{{ .Values.redis.serviceName }}.{{ .Values.namespace }}.svc.cluster.local:6379/3
     REDIS_USERNAME={{ .Values.redis.username }}
     REDIS_PASSWORD={{ .Values.redis.password }}
     CACHE_TIMEOUT_SECONDS=120
@@ -21,13 +22,13 @@ stringData:
     [release]
     address = "0.0.0.0"
     port = 80
-    secret_key="{{ .Values.onlineAlarm.rocketSecretKey.release }}"
-  serviceAccountKey.json: {{ .Values.onlineAlarm.firebaseServiceAccount | toJson | quote }}
+    secret_key="{{ .Values.alarmNotifier.rocketSecretKey.release }}"
+  serviceAccountKey.json: {{ .Values.alarmNotifier.firebaseServiceAccount | toJson | quote }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: online-alarm
+  name: alarm-notifier
   namespace: {{ .Values.namespace }}
 spec:
   replicas: 1
@@ -35,14 +36,14 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: online-alarm
+      app: alarm-notifier
   template:
     metadata:
       labels:
-        app: online-alarm
+        app: alarm-notifier
     spec:
       {{- if .Values.serviceAccounts.enabled }}
-      serviceAccountName: online-alarm
+      serviceAccountName: alarm-notifier
       automountServiceAccountToken: false
       {{- end }}
       securityContext:
@@ -52,14 +53,14 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-      - name: online-alarm
-        image: {{ .Values.onlineAlarm.image }}
+      - name: alarm-notifier
+        image: {{ .Values.alarmNotifier.image }}
         {{- if .Values.debug.pods.alwaysPullContainers }}
         imagePullPolicy: Always
         {{- end }}
         {{- if .Values.debug.pods.sleepInfinity }}
         command: ["/bin/sh"]
-        args: ["-c", "chmod +x /app/online; /app/online; sleep Infinity;"]
+        args: ["-c", "chmod +x /app/alarm-notifier; /app/alarm-notifier; sleep Infinity;"]
         {{- end }}
         securityContext:
           allowPrivilegeEscalation: false
@@ -68,7 +69,7 @@ spec:
             drop: ["ALL"]
             add: ["NET_BIND_SERVICE"]
         resources:
-          {{- toYaml .Values.onlineAlarm.resources | nindent 10 }}
+          {{- toYaml .Values.alarmNotifier.resources | nindent 10 }}
         readinessProbe:
           httpGet:
             path: /keepalive
@@ -85,15 +86,15 @@ spec:
           containerPort: 80
           protocol: TCP
         volumeMounts:
-        - name: online-alarm-secret
+        - name: alarm-notifier-secret
           mountPath: /app/.env
           subPath: .env
           readOnly: true
-        - name: online-alarm-secret
+        - name: alarm-notifier-secret
           mountPath: /app/Rocket.toml
           subPath: Rocket.toml
           readOnly: true
-        - name: online-alarm-secret
+        - name: alarm-notifier-secret
           mountPath: /app/serviceAccountKey.json
           subPath: serviceAccountKey.json
           readOnly: true
@@ -102,9 +103,9 @@ spec:
         - name: logs
           mountPath: /app/logs
       volumes:
-      - name: online-alarm-secret
+      - name: alarm-notifier-secret
         secret:
-          secretName: online-alarm-secret
+          secretName: alarm-notifier-secret
       - name: tmp
         emptyDir: {}
       - name: logs

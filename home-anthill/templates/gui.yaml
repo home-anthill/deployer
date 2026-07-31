@@ -48,7 +48,7 @@ data:
         {{- end }}
 
         location / {
-          root /etc/nginx/html/html;
+          root /etc/nginx/html/html/home-anthill;
           index  index.html index.htm;
           try_files $uri $uri/ /index.html;
         }

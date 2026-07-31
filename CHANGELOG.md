@@ -4,10 +4,16 @@
 
 ### Features
 
+- Renamed the online service workloads and chart values to `alarm-api`, `alarm-receiver`, and
+  `alarm-notifier`, including images, Secrets, ServiceAccounts, NetworkPolicies, smoke tests, and
+  the alarm-receiver MQTT role; heartbeat routes and `online/...` topics remain unchanged.
+- Configured alarm settings and pending events on Redis DB 3 for `alarm`, `alarm-receiver`, and `alarm-notifier`.
+- Added `HTTP_ALARM_ALARMS_API=/alarms/` to API-server and MQTT ACL access for `alarms/+/features/+/+` to the device publisher and alarm-receiver roles.
+- Renamed the alarm workloads' primary Redis setting to `ONLINE_REDIS_URI` and the alarm-receiver replay-cache setting to `REPLAY_REDIS_URI`.
 
 ### Security
 
-- Rendered consumer and online-receiver signed replay-cache Redis settings as `REDIS_REPLAY_URI` against Redis database `/2`.
+- Rendered the consumer `REDIS_REPLAY_URI` and alarm-receiver `REPLAY_REDIS_URI` signed replay-cache settings against Redis database `/2`.
 
 
 ## 6.0.1
@@ -28,7 +34,7 @@
 - Added explicit `REFRESH_TOKEN_HASH_SECRET` rendering for `api-server` so refresh/app-login token lookup hashes use a dedicated deployment secret instead of relying on fallback JWT secrets.
 - Replaced the API-server GitHub login restriction value with `apiServer.limitToUserEmails`, rendered as `LIMIT_TO_USER_EMAILS`, so deployments can allow a comma-separated list of GitHub email addresses.
 - Added `REDIS_URI`, `REDIS_USERNAME`, and `REDIS_PASSWORD` to the consumer Secret-backed runtime config for Redis-backed signed nonce replay protection.
-- Added `HTTP_ONLINE_APITOKEN_API=/api-token/` to the API-server runtime config so profile token regeneration can update plaintext token references held by the online service in Redis.
+- Added `HTTP_ALARM_APITOKEN_API=/api-token/` to the API-server runtime config so profile token regeneration can update plaintext token references held by the alarm-api service in Redis.
 - Replaced MetalLB with Cilium for bare-metal load balancing: added `CiliumLoadBalancerIPPool` and `CiliumL2AnnouncementPolicy`; removed MetalLB `IPAddressPool` and `L2Advertisement` resources.
 - Migrated from `nginx-ingress` to Gateway API using NGINX Gateway Fabric (`Gateway`, `HTTPRoute`, `TCPRoute`, `ClientSettingsPolicy`, `SnippetsFilter`).
 - Added `ClientSettingsPolicy` to enforce a 100 MiB maximum request body on the webapp Gateway.
