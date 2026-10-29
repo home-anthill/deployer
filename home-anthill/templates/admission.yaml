@@ -30,9 +30,16 @@ metadata:
   name: admission
   namespace: {{ .Values.namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.admission.replicas }}
   strategy:
+    {{- if gt (int .Values.admission.replicas) 1 }}
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+    {{- else }}
     type: Recreate
+    {{- end }}
   selector:
     matchLabels:
       app: admission

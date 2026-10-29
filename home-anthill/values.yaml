@@ -178,6 +178,7 @@ gui:
       memory: "64Mi"
 
 admission:
+  replicas: 1
   image: "ks89/admission:develop"
   serviceName: admission-svc
   nginxServiceName: admission-nginx-svc
@@ -213,6 +214,7 @@ apiDevices:
       memory: "128Mi"
 
 apiServer:
+  replicas: 1
   image: "ks89/api-server:develop"
   serviceName: api-server-svc
   # default values, please replace all those values with your custom values file

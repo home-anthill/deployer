@@ -4,6 +4,8 @@
 
 ### Features
 
+- Added configurable `apiServer.replicas` and `admission.replicas` values, both defaulting to 1.
+- Use rolling updates with zero unavailable pods and one surge pod for api-server and admission when their replica count exceeds 1; otherwise retain Recreate.
 - Renamed the online service workloads and chart values to `alarm-api`, `alarm-receiver`, and
   `alarm-notifier`, including images, Secrets, ServiceAccounts, NetworkPolicies, smoke tests, and
   the alarm-receiver MQTT role; heartbeat routes and `online/...` topics remain unchanged.

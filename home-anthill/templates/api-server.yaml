@@ -54,9 +54,16 @@ metadata:
   name: api-server
   namespace: {{ .Values.namespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.apiServer.replicas }}
   strategy:
+    {{- if gt (int .Values.apiServer.replicas) 1 }}
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+    {{- else }}
     type: Recreate
+    {{- end }}
   selector:
     matchLabels:
       app: api-server
